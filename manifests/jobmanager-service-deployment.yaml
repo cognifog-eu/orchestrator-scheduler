@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: jobmanager-service
+  name: jobmanager-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobmanager-service
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jobmanager-service
+    spec:
+      serviceAccountName: agones-controller
+      automountServiceAccountToken: true
+      containers:
+      - name: jobmanager-service
+        image: registry.atosresearch.eu:18484/icos-jobmanager-svc:develop
+        imagePullPolicy: Always 
+        env:
+          - name: SERVER_PORT
+            value: "8081"
+        #     - name: REGISTRY_USERNAME
+        #       valueFrom:
+        #         secretKeyRef:
+        #           name: nexuscommonsecret
+        #           key: Username
+        #     - name: REGISTRY_PASSWORD
+        #       valueFrom:
+        #         secretKeyRef:
+        #           name: nexuscommonsecret
+        #           key: Password
+        resources: {}
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: nexusicossecret
+status: {}

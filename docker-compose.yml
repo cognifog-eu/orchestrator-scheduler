@@ -1,0 +1,19 @@
+version: '3'
+services:
+  jobmanager-service:
+    container_name: jobmanager
+    # build: .
+    image: registry.atosresearch.eu:18484/jobmanager-service:dev
+    ports: 
+      - 8082:8082 # Forward the exposed port 8081 on the container to port 8081 on the host machine
+    restart: on-failure
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      # - postgres # This service depends on postgres. Start that first.
+      # - mysql # This service depends on mysql. Start that first.
+    networks:
+      - server
+
+# Networks to be created to facilitate communication between containers
+networks:
+  server:

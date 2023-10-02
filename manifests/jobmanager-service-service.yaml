@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: jobmanager-service
+  name: jobmanager-service
+spec:
+  ports:
+    - port: 8082
+      targetPort: 8082
+  selector:
+    app: jobmanager-service
+  type: ClusterIP
+status:
+  loadBalancer: {}
