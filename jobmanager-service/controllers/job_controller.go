@@ -16,17 +16,44 @@ const (
 )
 
 func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
-
 	vars := mux.Vars(r)
 	uid, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	job := models.Job{}
 
+	// gorm retrieve
+	job := models.Job{}
+	jobGotten, err := job.FindJobByUUID(server.DB, uint32(uid))
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, models.Job{})
+
+}
+
+func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	job := models.Job{
+		State: "Created",
+		Type:  vars["type"],
+	}
+
+	// matchmaking + optimization = targets -> async?
+
+	//
+
+	// gorm save
+
+	jobCreated, err := job.SaveJob(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, job)
 }
