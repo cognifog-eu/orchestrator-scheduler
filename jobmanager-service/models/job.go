@@ -45,7 +45,6 @@ type AppDescription struct {
 		Replicas int `yaml:"replicas"`
 		Selector struct {
 			MatchLabels struct {
-				Env string `yaml:"env"`
 			} `yaml:"matchLabels"`
 		} `yaml:"selector"`
 		Template struct {
@@ -74,6 +73,14 @@ type Jobs []struct {
 	Job Job
 }
 
+func StateIsValid(value int) bool {
+	return int(Created) > value && value < int(Failed)
+}
+
+func JobTypeIsValid(value int) bool {
+	return int(CreateDeployment) > value && value < int(DeleteDeployment)
+}
+
 func (j *Job) SaveJob(db *gorm.DB) (*Job, error) {
 
 	err := db.Debug().Create(&j).Error
@@ -98,6 +105,16 @@ func (u *Job) FindAllJobs(db *gorm.DB) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
 	err = db.Debug().Model(&Job{}).Limit(100).Find(&jobs).Error
+	if err != nil {
+		return &[]Job{}, err
+	}
+	return &jobs, err
+}
+
+func (u *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
+	var err error
+	jobs := []Job{}
+	err = db.Debug().Model(&Job{}).Where("state = ?", state).Limit(100).Find(&jobs).Error
 	if err != nil {
 		return &[]Job{}, err
 	}
