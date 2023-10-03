@@ -35,11 +35,17 @@ func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
+}
+
+func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
+}
+
 func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	job := models.Job{
-		State: "Created",
-		Type:  models.Created,
+		State: models.Created,
+		Type:  models.CreateDeployment,
 	}
 
 	// matchmaking + optimization = targets -> async?
@@ -55,4 +61,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusOK, job)
+}
+
+func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 }

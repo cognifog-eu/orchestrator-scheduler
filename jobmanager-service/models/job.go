@@ -8,20 +8,66 @@ import (
 	"gorm.io/gorm"
 )
 
+type State int
 type JobType int
 
 const (
-	Created JobType = iota + 1
+	Created State = iota + 1
 	Started
 	Progressing
 	Finished
 	Failed
+
+	CreateDeployment JobType = iota + 1
+	GetDeployment
+	DeleteDeployment
 )
 
 type Job struct {
-	UUID  uuid.UUID `json:"uuid"`
-	Type  JobType   `json:"type"`
-	State string    `json:"state"`
+	UUID           uuid.UUID      `json:"uuid"`
+	Type           JobType        `json:"type"`
+	State          State          `json:"state"`
+	AppDescription AppDescription `json:"component"` // will be an array in the future
+	Targets        []Target       // array of targets where the AppDescription is applied
+	// Policies?
+	// Requirements?
+}
+type Target struct {
+}
+
+type AppDescription struct {
+	APIVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Metadata   struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
+	Spec struct {
+		Replicas int `yaml:"replicas"`
+		Selector struct {
+			MatchLabels struct {
+				Env string `yaml:"env"`
+			} `yaml:"matchLabels"`
+		} `yaml:"selector"`
+		Template struct {
+			Metadata struct {
+				Name string `yaml:"name"`
+			} `yaml:"metadata"`
+			Spec struct {
+				Containers []struct {
+					Name      string   `yaml:"name"`
+					Image     string   `yaml:"image"`
+					Command   []string `yaml:"command"`
+					Args      []string `yaml:"args"`
+					Resources struct {
+						Requests struct {
+						} `yaml:"requests"`
+						Limits struct {
+						} `yaml:"limits"`
+					} `yaml:"resources"`
+				} `yaml:"containers"`
+			} `yaml:"spec"`
+		} `yaml:"template"`
+	} `yaml:"spec"`
 }
 
 type Jobs []struct {
@@ -46,6 +92,16 @@ func (j *Job) FindJobByUUID(db *gorm.DB, uid uint32) (*Job, error) {
 		return &Job{}, errors.New("Job Not Found")
 	}
 	return j, err
+}
+
+func (u *Job) FindAllJobs(db *gorm.DB) (*[]Job, error) {
+	var err error
+	jobs := []Job{}
+	err = db.Debug().Model(&Job{}).Limit(100).Find(&jobs).Error
+	if err != nil {
+		return &[]Job{}, err
+	}
+	return &jobs, err
 }
 
 func (j *Job) UpdateAJob(db *gorm.DB, uid uint32) (*Job, error) {

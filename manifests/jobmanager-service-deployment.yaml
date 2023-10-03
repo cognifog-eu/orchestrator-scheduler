@@ -22,19 +22,9 @@ spec:
       - name: jobmanager-service
         image: registry.atosresearch.eu:18484/icos-jobmanager-svc:develop
         imagePullPolicy: Always 
-        env:
-          - name: SERVER_PORT
-            value: "8081"
-        #     - name: REGISTRY_USERNAME
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: nexuscommonsecret
-        #           key: Username
-        #     - name: REGISTRY_PASSWORD
-        #       valueFrom:
-        #         secretKeyRef:
-        #           name: nexuscommonsecret
-        #           key: Password
+        envFrom:
+        - configMapRef:
+            name: jobmanager-config
         resources: {}
       restartPolicy: Always
       imagePullSecrets:
