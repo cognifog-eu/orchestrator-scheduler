@@ -1,1 +1,1 @@
-ICOS On-boarding Microservice: In charge of Registering the ICOS Controller to the Lighthouse
+ICOS Job Manager Microservice: In charge of Creating and Managing Jobs that are pulled by underlaying orchestrators
