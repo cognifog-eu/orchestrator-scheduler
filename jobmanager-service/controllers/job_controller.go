@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"icos/server/jobmanager-service/models"
 	"icos/server/jobmanager-service/responses"
 	"io"
 	"net/http"
 	"strconv"
 
+	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -19,15 +21,17 @@ const (
 
 func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	uid, err := strconv.ParseUint(vars["id"], 10, 32)
-	if err != nil {
+	stringUuid := vars["uuid"]
+	if stringUuid == "" {
+		err := errors.New("UUID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+	uuid, err := uuid.Parse(stringUuid)
 
 	// gorm retrieve
 	job := models.Job{}
-	jobGotten, err := job.FindJobByUUID(server.DB, uint32(uid))
+	jobGotten, err := job.FindJobByUUID(server.DB, uuid)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -97,15 +101,16 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	uid, err := strconv.ParseUint(vars["id"], 10, 32)
-	if err != nil {
+	stringUuid := vars["uuid"]
+	if stringUuid == "" {
+		err := errors.New("UUID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-
+	uuid, err := uuid.Parse(stringUuid)
 	// gorm retrieve
 	job := models.Job{}
-	jobDeleted, err := job.DeleteAJob(server.DB, uint32(uid))
+	jobDeleted, err := job.DeleteAJob(server.DB, uuid)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return

@@ -18,4 +18,6 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/jobmanager/jobs/:id", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobByUUID)))).Methods("GET")
 	// get all jobs with specific state GET <- driver
 	s.Router.HandleFunc("/jobmanager/jobs/:state", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
+
+	//healthcheck TODO
 }

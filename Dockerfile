@@ -43,7 +43,7 @@ WORKDIR /home/icos/
 COPY --from=builder /jobmanager-svc/main .
 # COPY --from=builder /jobmanager-service/.env .
 
-# Expose port 8080 to the outside world
+# Expose port to the outside world
 EXPOSE 8082
 
 #Command to run the executable

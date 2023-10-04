@@ -10,7 +10,8 @@ data:
     DB_NAME=icos-job-manager
     DB_PASSWORD=admin
     DB_PORT=3306
-    DB_USER=admin 
+    DB_USER=admin
+    SERVER_PORT=8082
   # other.properties: |
   #   color.good=purple
   #   color.bad=yellow
