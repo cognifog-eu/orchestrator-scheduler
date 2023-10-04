@@ -4,7 +4,7 @@ metadata:
   # annotations:
   #   nginx.ingress.kubernetes.io/rewrite-target: /
   name: icos-jobmanager
-  namespace: agones-system
+  namespace: default
 spec:
   ingressClassName: traefik
   rules:

@@ -25,7 +25,7 @@ const (
 
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
-	UUID           uuid.UUID      `json:"uuid"`
+	UUID           uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4()"json:"uuid"`
 	Type           JobType        `json:"type"`
 	State          State          `json:"state"`
 	AppDescription AppDescription `json:"component"` // will be an array in the future

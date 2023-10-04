@@ -1,7 +1,7 @@
 
 # this file defines specific rules for fleet to apply, such as target cluster definition
 
-defaultNamespace: agones-system
+defaultNamespace: default
 targetCustomizations:
 - name: dev
   clusterSelector:

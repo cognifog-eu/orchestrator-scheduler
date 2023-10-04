@@ -23,12 +23,12 @@ func (server *Server) Init() {
 	server.initializeRoutes()
 }
 
-func (server *Server) Initialize(Dbdriver, DbUser, DbPassword, DbPort, DbHost, DbName string) {
+func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, dbName string) {
 
 	var err error
 
-	if Dbdriver == "mysql" {
-		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", DbUser, DbPassword, DbHost, DbPort, DbName)
+	if dbdriver == "mysql" {
+		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", dbUser, dbPassword, dbHost, dbPort, dbName)
 		config := go_driver.Config{
 			AllowNativePasswords: true, // deprecate in the future
 		}
@@ -39,13 +39,13 @@ func (server *Server) Initialize(Dbdriver, DbUser, DbPassword, DbPort, DbHost, D
 			}), &gorm.Config{})
 
 		if err != nil {
-			fmt.Printf("Cannot connect to %s database", Dbdriver)
+			fmt.Printf("Cannot connect to %s database", dbdriver)
 			log.Fatal("This is the error:", err)
 		} else {
-			fmt.Printf("We are connected to the %s database", Dbdriver)
+			fmt.Printf("We are connected to the %s database", dbdriver)
 		}
 		// first time schema creation
-		server.DB.Exec("CREATE DATABASE IF NOT EXISTS " + DbName + ";")
+		server.DB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + ";")
 	}
 
 	server.DB.Debug().AutoMigrate(&models.Job{}) //database migration

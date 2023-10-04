@@ -16,11 +16,10 @@ spec:
       labels:
         app: jobmanager-service
     spec:
-      serviceAccountName: agones-controller
       automountServiceAccountToken: true
       containers:
       - name: jobmanager-service
-        image: registry.atosresearch.eu:18484/icos-jobmanager-svc:develop
+        image: registry.atosresearch.eu:18484/icos-jobmanager-svc:main
         imagePullPolicy: Always 
         envFrom:
         - configMapRef:

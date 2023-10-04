@@ -27,6 +27,9 @@ spec:
                secretKeyRef: 
                 key: ROOT_PASSWORD
                 name: mysql-secret
+          envFrom:
+            - configMapRef:
+                name: jobmanager-config
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
@@ -34,7 +37,7 @@ spec:
     - metadata:
         name: data
       spec:
-        storageClassName: standard
+        storageClassName: local-path
         accessModes:
           - ReadWriteOnce
         resources:
