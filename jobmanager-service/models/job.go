@@ -26,7 +26,8 @@ const (
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
 	gorm.Model
-	UUID  uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()"json:"uuid"`
+	ID    uint32    `gorm:"primary_key"`
+	UUID  uuid.UUID `json:"uuid"`
 	Type  JobType   `json:"type"`
 	State State     `json:"state"`
 	// Manifest *workv1.Manifest `json:"manifest"` // Can be used instead
@@ -34,6 +35,12 @@ type Job struct {
 	Targets  []Target // array of targets where the Manifest is applied
 	// Policies?
 	// Requirements?
+}
+
+func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
+	// UUID version 4
+	job.UUID = uuid.New()
+	return
 }
 
 type Manifest struct {
