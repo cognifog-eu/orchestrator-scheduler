@@ -7,7 +7,7 @@ data:
   DB_DRIVER: mysql
   DB_HOST: mysql
   DB_NAME: jobmanager
-  DB_PASSWORD: admin
+  DB_PASSWORD: p@ss-2023-mysql_
   DB_PORT: '3306'
-  DB_USER: admin
+  DB_USER: root
   SERVER_PORT: '8082'
