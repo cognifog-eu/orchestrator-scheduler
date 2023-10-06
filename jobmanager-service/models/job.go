@@ -25,29 +25,61 @@ const (
 
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
-	UUID           uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4()"json:"uuid"`
-	Type           JobType        `json:"type"`
-	State          State          `json:"state"`
-	AppDescription AppDescription `json:"component"` // will be an array in the future
-	Targets        []Target       // array of targets where the AppDescription is applied
+	gorm.Model
+	UUID  uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()"json:"uuid"`
+	Type  JobType   `json:"type"`
+	State State     `json:"state"`
+	// Manifest *workv1.Manifest `json:"manifest"` // Can be used instead
+	Manifest Manifest `json:"manifest"` // will be an array in the future
+	Targets  []Target // array of targets where the Manifest is applied
 	// Policies?
 	// Requirements?
 }
 
-type Target struct {
-	// TODO UPC
+type Manifest struct {
+	gorm.Model
+	APIVersion string   `yaml:"apiVersion"`
+	Kind       string   `yaml:"kind"`
+	Metadata   Metadata `yaml:"metadata"`
+	Spec       Spec     `yaml:"spec"`
 }
 
 type Metadata struct {
+	gorm.Model
 	Name   string            `yaml:"name"`
 	Labels map[string]string `yaml:"labels"`
 }
 
+type Spec struct {
+	gorm.Model
+	Replicas int      `yaml:"replicas"`
+	Selector Selector `yaml:"selector"`
+	Template Template `yaml:"template"`
+}
+
 type Selector struct {
+	gorm.Model
 	MatchLabels map[string]string `yaml:"matchLabels"`
 }
 
+type Template struct {
+	gorm.Model
+	Metadata     Metadata
+	TemplateSpec TemplateSpec
+}
+
+type Target struct {
+	gorm.Model
+	// TODO UPC
+}
+
+type TemplateSpec struct {
+	gorm.Model
+	Containers []Container `yaml:"containers"`
+}
+
 type Container struct {
+	gorm.Model
 	Name      string    `yaml:"name"`
 	Image     string    `yaml:"image"`
 	Command   []string  `yaml:"command"`
@@ -56,34 +88,9 @@ type Container struct {
 }
 
 type Resources struct {
+	gorm.Model
 	Requests map[string]string `yaml:"requests"`
 	Limits   map[string]string `yaml:"limits"`
-}
-
-type TemplateSpec struct {
-	Containers []Container `yaml:"containers"`
-}
-
-type Template struct {
-	Metadata     Metadata
-	TemplateSpec TemplateSpec
-}
-
-type Spec struct {
-	Replicas int      `yaml:"replicas"`
-	Selector Selector `yaml:"selector"`
-	Template Template `yaml:"template"`
-}
-
-type AppDescription struct {
-	APIVersion string   `yaml:"apiVersion"`
-	Kind       string   `yaml:"kind"`
-	Metadata   Metadata `yaml:"metadata"`
-	Spec       Spec     `yaml:"spec"`
-}
-
-type Jobs []struct {
-	Job Job
 }
 
 func StateIsValid(value int) bool {
@@ -138,7 +145,7 @@ func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
 	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).UpdateColumns(
 		map[string]interface{}{
 			"state":      j.State,
-			"created_at": time.Now(),
+			"updated_at": time.Now(),
 		},
 	)
 	if db.Error != nil {
