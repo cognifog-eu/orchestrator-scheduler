@@ -67,6 +67,13 @@ type Job struct {
 	Targets []Target `gorm:"type:text" json:"targets"` // array of targets where the Manifest is applied
 	// Policies?
 	// Requirements?
+	Locker bool `gorm:"default:false" json:"locker"`
+}
+
+// hold information that N jobs share (N jobs needed to provide application x)
+type JobGroup struct {
+	AppName        string `json:"appName"`
+	AppDescription string `json:"appDescription"`
 }
 
 func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
@@ -135,7 +142,8 @@ func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
 
 type Target struct {
 	gorm.Model
-	ID uint32 `gorm:"primary_key"`
+	ID       uint32 `gorm:"primary_key" json:"id"`
+	Hostname string `json:"hostname"`
 	// what we need to know about targets -> ocm: cluster-id; nuvla: infra-service-uuid
 	// at least:
 	// cluster-id: string. Represents a cluster
@@ -177,6 +185,12 @@ func JobTypeIsValid(value int) bool {
 	return int(CreateDeployment) >= value && value <= int(DeleteDeployment)
 }
 
+func (j *Job) NewJobTTL() {
+	if time.Now().Unix()-j.UpdatedAt.Unix() > int64(300) {
+		j.Locker = false
+	}
+}
+
 func (j *Job) SaveJob(db *gorm.DB) (*Job, error) {
 	// create UUID before saving the Job to DB
 	j.BeforeCreate(db)
@@ -208,7 +222,7 @@ func (u *Job) FindAllJobs(db *gorm.DB) (*[]Job, error) {
 	return &jobs, err
 }
 
-func (u *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
+func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
 	err = db.Debug().Model(&Job{}).Where("state = ?", state).Limit(100).Find(&jobs).Error
@@ -218,11 +232,26 @@ func (u *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 	return &jobs, err
 }
 
+func (j *Job) FindJobsToExecute(db *gorm.DB) (*[]Job, error) {
+	var err error
+	jobs := []Job{}
+	err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
+		Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at > ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
+		Limit(100).Find(&jobs).Error
+	if err != nil {
+		return &[]Job{}, err
+	}
+	return &jobs, err
+}
+
 func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
+	// trigger TTL ticker on each writing access except the CreateJob
+	j.NewJobTTL()
 	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).UpdateColumns(
 		map[string]interface{}{
-			// "state":      j.State,
+			"state":      j.State,
 			"updated_at": time.Now(),
+			"locker":     j.Locker, // TODO: this is not OK! - idempotency? how many times can I unlock/lock a job?
 		},
 	)
 	if db.Error != nil {

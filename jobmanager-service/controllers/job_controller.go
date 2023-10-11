@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"icos/server/jobmanager-service/models"
 	"icos/server/jobmanager-service/responses"
@@ -63,7 +64,8 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 
 	// gorm retrieve
 	job := models.Job{}
-	jobGotten, err := job.FindJobsByState(server.DB, int(state))
+	// retrieves jobs that are created && not locked or progressing && locked for more than a minute
+	jobGotten, err := job.FindJobsToExecute(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -178,6 +180,18 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 	uuid, err := uuid.Parse(stringUuid)
 
 	job := models.Job{}
+
+	bodyJob, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	}
+
+	err = json.Unmarshal(bodyJob, &job)
+	if err != nil {
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
 	jobUpdated, err := job.UpdateAJob(server.DB, uuid)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
