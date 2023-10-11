@@ -236,7 +236,7 @@ func (j *Job) FindJobsToExecute(db *gorm.DB) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
 	err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
-		Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at > ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
+		Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
 		Limit(100).Find(&jobs).Error
 	if err != nil {
 		return &[]Job{}, err
