@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"icos/server/jobmanager-service/models"
@@ -16,7 +17,7 @@ import (
 const (
 	lighthouseBaseURL  = "http://lighthouse.icos-project.eu:8080"
 	apiV3              = "/api/v3"
-	matchmackerBaseURL = ""
+	matchmackerBaseURL = "http://147.83.159.195:24780/MatchMaking"
 )
 
 func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
@@ -95,42 +96,42 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	var targets []models.Target
 
 	// create MM request
-	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
+	if err != nil {
+		// logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
-	// // forward the authorization token
-	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// forward the authorization token
+	req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
 	// // do request
-	// client := &http.Client{}
-	// resp, err := client.Do(req)
-	// // logger.Info("Rancher response is: " + resp.Status)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-	// defer resp.Body.Close()
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	// logger.Info("Rancher response is: " + resp.Status)
+	if err != nil {
+		// logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	defer resp.Body.Close()
 
-	// // direct body read
-	// bodyMM, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	// direct body read
+	bodyMM, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
 	// parse to application objects
-	// err = json.Unmarshal(bodyMM, &targets)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	err = json.Unmarshal(bodyMM, &targets)
+	if err != nil {
+		// logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
 	// append targets to jobs app description
 	// gorm save

@@ -142,8 +142,9 @@ func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
 
 type Target struct {
 	gorm.Model
-	ID       uint32 `gorm:"primary_key" json:"id"`
-	Hostname string `json:"hostname"`
+	ID          uint32 `gorm:"primary_key" json:"id"`
+	ClusterName string `json:"cluster_name"`
+	Hostname    string `json:"node_name"`
 	// what we need to know about targets -> ocm: cluster-id; nuvla: infra-service-uuid
 	// at least:
 	// cluster-id: string. Represents a cluster
