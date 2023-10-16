@@ -1,14 +1,12 @@
 package controllers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"icos/server/jobmanager-service/models"
 	"icos/server/jobmanager-service/responses"
 	"io"
 	"net/http"
-	"strconv"
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -54,14 +52,15 @@ func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// retrieves only executable jobs for now
 func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	state, err := strconv.ParseInt(vars["state"], 10, 32)
-	// state validation
-	if !models.StateIsValid(int(state)) {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
+	// vars := mux.Vars(r)
+	// state, err := strconv.ParseInt(vars["state"], 10, 32)
+	// // state validation
+	// if !models.StateIsValid(int(state)) {
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
 
 	// gorm retrieve
 	job := models.Job{}
@@ -93,45 +92,50 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	// validate job -> if unmarshalled without error = OK
 	// matchmaking + optimization = targets -> sync?
-	var targets []models.Target
+	targets := []models.Target{
+		{
+			Hostname:    "ocm-worker1.bull1.ari-imet.eu",
+			ClusterName: "k3s-worker1",
+		},
+	}
 
 	// create MM request
-	req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
+	// if err != nil {
+	// 	// logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// forward the authorization token
-	req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// // forward the authorization token
+	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // do request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	// logger.Info("Rancher response is: " + resp.Status)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	defer resp.Body.Close()
+	// // // do request
+	// client := &http.Client{}
+	// resp, err := client.Do(req)
+	// // logger.Info("Rancher response is: " + resp.Status)
+	// if err != nil {
+	// 	// logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
+	// defer resp.Body.Close()
 
-	// direct body read
-	bodyMM, err := io.ReadAll(resp.Body)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // direct body read
+	// bodyMM, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	// logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// parse to application objects
-	err = json.Unmarshal(bodyMM, &targets)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // parse to application objects
+	// err = json.Unmarshal(bodyMM, &targets)
+	// if err != nil {
+	// 	// logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
 	// append targets to jobs app description
 	// gorm save

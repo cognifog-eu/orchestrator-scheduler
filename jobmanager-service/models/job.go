@@ -23,7 +23,6 @@ const (
 	DeleteDeployment
 )
 
-// TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
 	gorm.Model
 	ID       uuid.UUID `gorm:"type:uuid;primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
@@ -31,40 +30,7 @@ type Job struct {
 	Type     JobType   `gorm:"type:text" json:"type"`
 	State    State     `gorm:"type:text" json:"state"`
 	Manifest string    `gorm:"type:text" json:"manifest"`
-	// // Manifest *workv1.Manifest `json:"manifest"` // Can be used instead
-	// Manifest struct {
-	// APIVersion string `json:"apiVersion"`
-	// Kind       string `json:"kind"`
-	// Metadata   struct {
-	// 	Name   string            `json:"name"`
-	// 	Labels map[string]string `json:"labels"`
-	// } `gorm:"type:text" json:"metadata"`
-	// Spec struct {
-	// 	Replicas int `json:"replicas"`
-	// 	Selector struct {
-	// 		MatchLabels map[string]string `json:"matchLabels"`
-	// 	} `gorm:"type:text" json:"selector"`
-	// 	Template struct {
-	// 		Metadata struct {
-	// 			Name   string            `json:"name"`
-	// 			Labels map[string]string `json:"labels"`
-	// 		} `gorm:"type:text" json:"metadata"`
-	// 		TemplateSpec struct {
-	// 			Container []struct {
-	// 				Name      string   `json:"name"`
-	// 				Image     string   `json:"image"`
-	// 				Command   []string `json:"command"`
-	// 				Args      []string `json:"args"`
-	// 				Resources struct {
-	// 					Requests map[string]string `gorm:"type:text"  json:"requests"`
-	// 					Limits   map[string]string `gorm:"type:text"  json:"limits"`
-	// 				} `gorm:"type:text" json:"resources"`
-	// 			} `gorm:"type:text" json:"containers"`
-	// 		} `gorm:"type:text"`
-	// 	} `gorm:"type:text" json:"template"`
-	// } `gorm:"type:text" json:"spec"`
-	// } `gorm:"type:text" json:"manifest"` // will be an array in the future
-	Targets []Target `gorm:"type:text" json:"targets"` // array of targets where the Manifest is applied
+	Targets  []Target  `gorm:"type:text" json:"targets,omitempty"` // array of targets where the Manifest is applied
 	// Policies?
 	// Requirements?
 	Locker bool `gorm:"default:false" json:"locker"`
@@ -82,67 +48,8 @@ func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-// type Manifest struct {
-// 	gorm.Model
-// 	ID         uint32 `gorm:"primary_key"`
-// 	APIVersion string `json:"apiVersion"`
-// 	Kind       string `json:"kind"`
-// 	Metadata   struct {
-// 		Name   string            `json:"name"`
-// 		Labels map[string]string `json:"labels"`
-// 	} `json:"metadata"`
-// 	Spec struct {
-// 		Replicas int `json:"replicas"`
-// 		Selector struct {
-// 			gorm.Model
-// 			ID          uint32            `gorm:"primary_key"`
-// 			MatchLabels map[string]string `json:"matchLabels"`
-// 		} `json:"selector"`
-// 		Template struct {
-// 			gorm.Model
-// 			ID       uint32 `gorm:"primary_key"`
-// 			Metadata struct {
-// 				Name   string            `json:"name"`
-// 				Labels map[string]string `json:"labels"`
-// 			} `json:"metadata"`
-// 			TemplateSpec struct {
-// 				Containers []Container `json:"containers"`
-// 			}
-// 		} `json:"template"`
-// 	} `json:"spec"`
-// }
-
-// type Metadata struct {
-// 	gorm.Model
-// 	ID     uint32            `gorm:"primary_key"`
-// 	Name   string            `json:"name"`
-// 	Labels map[string]string `json:"labels"`
-// }
-
-// type Spec struct {
-// 	gorm.Model
-// 	ID       uint32   `gorm:"primary_key"`
-// 	Replicas int      `json:"replicas"`
-// 	Selector Selector `json:"selector"`
-// 	Template Template `json:"template"`
-// }
-
-// type Selector struct {
-// 	gorm.Model
-// 	ID          uint32            `gorm:"primary_key"`
-// 	MatchLabels map[string]string `json:"matchLabels"`
-// }
-
-// type Template struct {
-// 	gorm.Model
-// 	ID           uint32 `gorm:"primary_key"`
-// 	Metadata     Metadata
-// 	TemplateSpec TemplateSpec
-// }
-
 type Target struct {
 	gorm.Model
-	ID          uint32 `gorm:"primary_key" json:"id"`
 	ClusterName string `json:"cluster_name"`
 	Hostname    string `json:"node_name"`
 	// what we need to know about targets -> ocm: cluster-id; nuvla: infra-service-uuid
@@ -154,29 +61,6 @@ type Target struct {
 	// what we need to know about peripherals
 	// TODO UPC
 }
-
-// type TemplateSpec struct {
-// 	gorm.Model
-// 	ID         uint32      `gorm:"primary_key"`
-// 	Containers []Container `json:"containers"`
-// }
-
-// type Container struct {
-// 	gorm.Model
-// 	ID        uint32    `gorm:"primary_key"`
-// 	Name      string    `json:"name"`
-// 	Image     string    `json:"image"`
-// 	Command   []string  `json:"command"`
-// 	Args      []string  `json:"args"`
-// 	Resources Resources `json:"resources"`
-// }
-
-// type Resources struct {
-// 	gorm.Model
-// 	ID       uint32            `gorm:"primary_key"`
-// 	Requests map[string]string `gorm:"type:text"  json:"requests"`
-// 	Limits   map[string]string `gorm:"type:text"  json:"limits"`
-// }
 
 func StateIsValid(value int) bool {
 	return int(Created) >= value && value <= int(Failed)

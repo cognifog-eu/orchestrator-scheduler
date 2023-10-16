@@ -48,7 +48,7 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		server.DB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + ";")
 	}
 
-	server.DB.Debug().AutoMigrate(&models.Job{}) //database migration
+	server.DB.Debug().AutoMigrate(&models.Job{}, &models.Target{}) //database migration
 
 	server.Router = mux.NewRouter()
 
