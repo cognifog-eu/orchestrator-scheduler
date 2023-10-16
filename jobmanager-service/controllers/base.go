@@ -28,7 +28,7 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 	var err error
 
 	if dbdriver == "mysql" {
-		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", dbUser, dbPassword, dbHost, dbPort, dbName)
+		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/", dbUser, dbPassword, dbHost, dbPort)
 		config := go_driver.Config{
 			AllowNativePasswords: true, // deprecate in the future
 		}
@@ -46,6 +46,7 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		}
 		// first time schema creation
 		server.DB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + ";")
+		server.DB.Exec("USE " + dbName)
 	}
 
 	server.DB.Debug().AutoMigrate(&models.Job{}, &models.Target{}) //database migration
