@@ -2,12 +2,20 @@ version: '3'
 services:
   jobmanager-service:
     container_name: jobmanager
-    # build: .
+    build: .
     image: registry.atosresearch.eu:18484/jobmanager-service:dev
     ports: 
       - 8082:8082 # Forward the exposed port 8081 on the container to port 8081 on the host machine
+    environment: 
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DRIVER=mysql
+      - SERVER_PORT=${SERVER_PORT}
     restart: on-failure
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       # - postgres # This service depends on postgres. Start that first.
       - mysql # This service depends on mysql. Start that first.
