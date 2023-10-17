@@ -16,7 +16,7 @@ import (
 const (
 	lighthouseBaseURL  = "http://lighthouse.icos-project.eu:8080"
 	apiV3              = "/api/v3"
-	matchmackerBaseURL = "http://147.83.159.195:24780/MatchMaking"
+	matchmackerBaseURL = "http://147.83.159.195:24780/matchmake"
 )
 
 func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +94,12 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// validate job -> if unmarshalled without error = OK
 	// matchmaking + optimization = targets -> sync?
 	var targets []models.Target
+
+	// MM Mock
+	// targets = append(targets, models.Target{
+	// 	ClusterName: "k3s-worker1",
+	// 	Hostname:    "k3s-worker1",
+	// })
 
 	// create MM request
 	req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))

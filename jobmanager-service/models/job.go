@@ -13,10 +13,9 @@ type JobType int
 
 const (
 	Created State = iota + 1
-	Started
 	Progressing
-	Finished
-	Failed
+	Available
+	Degraded
 
 	CreateDeployment JobType = iota + 1
 	GetDeployment
@@ -25,49 +24,17 @@ const (
 
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
-	gorm.Model
+	// gorm.Model
 	ID       uuid.UUID `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
 	UUID     uuid.UUID `gorm:"type:text" json:"uuid"`     // optional and unique across all icos
 	Type     JobType   `gorm:"type:text" json:"type"`
 	State    State     `gorm:"type:text" json:"state"`
 	Manifest string    `gorm:"type:text" json:"manifest"`
-	// // Manifest *workv1.Manifest `json:"manifest"` // Can be used instead
-	// Manifest struct {
-	// APIVersion string `json:"apiVersion"`
-	// Kind       string `json:"kind"`
-	// Metadata   struct {
-	// 	Name   string            `json:"name"`
-	// 	Labels map[string]string `json:"labels"`
-	// } `gorm:"type:text" json:"metadata"`
-	// Spec struct {
-	// 	Replicas int `json:"replicas"`
-	// 	Selector struct {
-	// 		MatchLabels map[string]string `json:"matchLabels"`
-	// 	} `gorm:"type:text" json:"selector"`
-	// 	Template struct {
-	// 		Metadata struct {
-	// 			Name   string            `json:"name"`
-	// 			Labels map[string]string `json:"labels"`
-	// 		} `gorm:"type:text" json:"metadata"`
-	// 		TemplateSpec struct {
-	// 			Container []struct {
-	// 				Name      string   `json:"name"`
-	// 				Image     string   `json:"image"`
-	// 				Command   []string `json:"command"`
-	// 				Args      []string `json:"args"`
-	// 				Resources struct {
-	// 					Requests map[string]string `gorm:"type:text"  json:"requests"`
-	// 					Limits   map[string]string `gorm:"type:text"  json:"limits"`
-	// 				} `gorm:"type:text" json:"resources"`
-	// 			} `gorm:"type:text" json:"containers"`
-	// 		} `gorm:"type:text"`
-	// 	} `gorm:"type:text" json:"template"`
-	// } `gorm:"type:text" json:"spec"`
-	// } `gorm:"type:text" json:"manifest"` // will be an array in the future
-	Targets []Target `json:"targets"` // array of targets where the Manifest is applied
+	Targets  []Target  `json:"targets"` // array of targets where the Manifest is applied
 	// Policies?
 	// Requirements?
-	Locker bool `gorm:"default:false" json:"locker"`
+	Locker    *bool     `json:"locker"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // hold information that N jobs share (N jobs needed to provide application x)
@@ -79,11 +46,13 @@ type JobGroup struct {
 func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
 	job.ID = uuid.New()
+	*job.Locker = false
 	return
 }
 
 type Target struct {
 	ID          uint32 `gorm:"primary_key" json:"id"`
+	JobID       uuid.UUID
 	ClusterName string `json:"cluster_name"`
 	Hostname    string `json:"node_name"`
 	// what we need to know about peripherals
@@ -91,7 +60,7 @@ type Target struct {
 }
 
 func StateIsValid(value int) bool {
-	return int(Created) >= value && value <= int(Failed)
+	return int(Created) >= value && value <= int(Degraded)
 }
 
 func JobTypeIsValid(value int) bool {
@@ -100,7 +69,7 @@ func JobTypeIsValid(value int) bool {
 
 func (j *Job) NewJobTTL() {
 	if time.Now().Unix()-j.UpdatedAt.Unix() > int64(300) {
-		j.Locker = false
+		*j.Locker = false
 	}
 }
 
@@ -115,7 +84,7 @@ func (j *Job) SaveJob(db *gorm.DB) (*Job, error) {
 }
 
 func (j *Job) FindJobByUUID(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
-	err := db.Debug().Model(Job{}).Where("id = ?", uuid).Take(&j).Error
+	err := db.Debug().Model(Job{}).Where("id = ?", uuid).Preload("Targets").Take(&j).Error
 	if err != nil {
 		return &Job{}, err
 	}
@@ -128,7 +97,7 @@ func (j *Job) FindJobByUUID(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
 func (u *Job) FindAllJobs(db *gorm.DB) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	err = db.Debug().Model(&Job{}).Limit(100).Find(&jobs).Error
+	err = db.Debug().Model(&Job{}).Preload("Targets").Find(&jobs).Error
 	if err != nil {
 		return &[]Job{}, err
 	}
@@ -138,7 +107,7 @@ func (u *Job) FindAllJobs(db *gorm.DB) (*[]Job, error) {
 func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	err = db.Debug().Model(&Job{}).Where("state = ?", state).Limit(100).Find(&jobs).Error
+	err = db.Debug().Model(&Job{}).Where("state = ?", state).Preload("Targets").Find(&jobs).Error
 	if err != nil {
 		return &[]Job{}, err
 	}
@@ -148,31 +117,33 @@ func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 func (j *Job) FindJobsToExecute(db *gorm.DB) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
-		Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
-		Limit(100).Find(&jobs).Error
-	if err != nil {
-		return &[]Job{}, err
-	}
+	db.Debug().Find(&jobs, "state =? AND locker = FALSE OR state =? AND locker = TRUE", int(Created), int(Progressing))
+	// err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
+	// 	Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
+	// 	Preload("Targets").Find(&jobs).Error
+	// if err != nil {
+	// 	return &[]Job{}, err
+	// }
 	return &jobs, err
 }
 
 func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
 	// trigger TTL ticker on each writing access except the CreateJob
 	j.NewJobTTL()
-	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).UpdateColumns(
-		map[string]interface{}{
-			"state":      j.State,
-			"updated_at": time.Now(),
-			"locker":     j.Locker, // TODO: this is not OK! - idempotency? how many times can I unlock/lock a job?
-		},
-	)
+	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Updates(Job{UUID: j.UUID, State: j.State, UpdatedAt: time.Now(), Locker: j.Locker})
+	// db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).UpdateColumns(
+	// 	map[string]interface{}{
+	// 		"state":      j.State,
+	// 		"updated_at": time.Now(),
+	// 		"locker":     j.Locker, // TODO: this is not OK! - idempotency? how many times can I unlock/lock a job?
+	// 	},
+	// )
 	if db.Error != nil {
 		return &Job{}, db.Error
 	}
 
 	// This is the display the updated Job
-	err := db.Debug().Model(&Job{}).Where("id = ?", uuid).Take(&j).Error
+	err := db.Debug().Model(&Job{}).Where("id = ?", uuid).Preload("Targets").Take(&j).Error
 	if err != nil {
 		return &Job{}, err
 	}
@@ -182,8 +153,9 @@ func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
 func (j *Job) DeleteAJob(db *gorm.DB, uuid uuid.UUID) (int64, error) {
 
 	// db = db.Debug().Model(&Job{}).Where("id = ?", uid).Take(&Job{}).Delete(&Job{}) // debug only
-	db = db.Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).Delete(&Job{})
-
+	// delete targets first
+	db = db.Select(j.Targets).Delete(&Job{ID: uuid})
+	// db = db.Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).Delete(&Job{})
 	if db.Error != nil {
 		return 0, db.Error
 	}
