@@ -9,6 +9,6 @@ var Logger *log.Logger
 
 func init() {
 
-	Logger = log.New(os.Stdout, "[OTPAAS-BACKEND] ", log.Ldate|log.Ltime)
+	Logger = log.New(os.Stdout, "[JOB-MANAGER] ", log.Ldate|log.Ltime)
 
 }
