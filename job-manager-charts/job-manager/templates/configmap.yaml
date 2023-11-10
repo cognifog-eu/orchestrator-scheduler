@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+  namespace: default
+data:
+  DB_DRIVER: {{ .Values.configMap.dbDriver }}
+  DB_HOST: {{ .Values.configMap.dbHost }}
+  DB_NAME: {{ .Values.configMap.dbName }}
+  DB_PASSWORD: {{ .Values.configMap.dbPassword }}
+  DB_PORT: {{ .Values.configMap.dbPort | quote }}
+  DB_USER: {{ .Values.configMap.dbUser }}
+  SERVER_PORT: {{ .Values.configMap.serverPort | quote }}

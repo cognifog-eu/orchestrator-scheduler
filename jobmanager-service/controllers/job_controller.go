@@ -1,13 +1,15 @@
 package controllers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"icos/server/jobmanager-service/models"
 	"icos/server/jobmanager-service/responses"
+	"icos/server/jobmanager-service/utils/logs"
 	"io"
 	"net/http"
+	"strings"
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -33,13 +35,13 @@ func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringUuid := vars["uuid"]
-	if stringUuid == "" {
-		err := errors.New("UUID Cannot be empty")
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringUuid)
+	uuid, err := uuid.Parse(stringID)
 
 	// gorm retrieve
 	job := models.Job{}
@@ -84,6 +86,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 	}
 	bodyString := string(bodyBytes)
+	bodyStringTrimmed := strings.Trim(bodyString, "\r\n")
+	logs.Logger.Println("Trimmed body: " + bodyStringTrimmed)
 
 	// err = json.Unmarshal(body, &jobTemp.Manifest)
 	// if err != nil {
@@ -96,55 +100,55 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	var targets []models.Target
 
 	// MM Mock
-	// targets = append(targets, models.Target{
-	// 	ClusterName: "k3s-worker1",
-	// 	Hostname:    "k3s-worker1",
-	// })
+	targets = append(targets, models.Target{
+		ClusterName: "k3s-worker1",
+		NodeName:    "k3s-worker1",
+	})
 
-	// create MM request
-	req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // create MM request
+	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// forward the authorization token
-	req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// // forward the authorization token
+	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // do request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	// logger.Info("Rancher response is: " + resp.Status)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	defer resp.Body.Close()
+	// // // do request
+	// client := &http.Client{}
+	// resp, err := client.Do(req)
+	// // logger.Info("Rancher response is: " + resp.Status)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
+	// defer resp.Body.Close()
 
-	// direct body read
-	bodyMM, err := io.ReadAll(resp.Body)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // direct body read
+	// bodyMM, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// parse to application objects
-	err = json.Unmarshal(bodyMM, &targets)
-	if err != nil {
-		// logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // parse to application objects
+	// err = json.Unmarshal(bodyMM, &targets)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
 	// append targets to jobs app description
 	// gorm save
 	job := models.Job{
 		Type:     models.CreateDeployment,
 		State:    models.Created,
-		Manifest: bodyString,
+		Manifest: bodyStringTrimmed,
 		Targets:  targets,
 	}
 	jobCreated, err := job.SaveJob(server.DB)
@@ -159,13 +163,14 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringUuid := vars["uuid"]
-	if stringUuid == "" {
-		err := errors.New("UUID Cannot be empty")
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
+		fmt.Println("JOB's ID is empty!")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringUuid)
+	uuid, err := uuid.Parse(stringID)
 	// gorm retrieve
 	job := models.Job{}
 	jobDeleted, err := job.DeleteAJob(server.DB, uuid)
@@ -179,13 +184,14 @@ func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringUuid := vars["uuid"]
-	if stringUuid == "" {
-		err := errors.New("UUID Cannot be empty")
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
+		fmt.Println("JOB's ID is empty!")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringUuid)
+	id, err := uuid.Parse(stringID)
 
 	job := models.Job{}
 
@@ -200,7 +206,7 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jobUpdated, err := job.UpdateAJob(server.DB, uuid)
+	jobUpdated, err := job.UpdateAJob(server.DB, id)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return

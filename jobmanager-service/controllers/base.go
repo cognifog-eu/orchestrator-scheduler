@@ -28,7 +28,7 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 	var err error
 
 	if dbdriver == "mysql" {
-		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/?parseTime=true", dbUser, dbPassword, dbHost, dbPort)
+		DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", dbUser, dbPassword, dbHost, dbPort, dbName)
 		config := go_driver.Config{
 			AllowNativePasswords: true, // deprecate in the future
 		}
@@ -41,6 +41,16 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		if err != nil {
 			fmt.Printf("Cannot connect to %s database", dbdriver)
 			log.Fatal("This is the error:", err)
+			DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&parseTime=True&loc=Local", dbUser, dbPassword, dbHost, dbPort)
+			config := go_driver.Config{
+				AllowNativePasswords: true, // deprecate in the future
+			}
+			server.DB, err = gorm.Open(mysql.New(
+				mysql.Config{
+					DSN:       DBURL,
+					DSNConfig: &config,
+				}), &gorm.Config{})
+			server.DB.Exec("USE " + dbName)
 		} else {
 			fmt.Printf("We are connected to the %s database", dbdriver)
 		}
