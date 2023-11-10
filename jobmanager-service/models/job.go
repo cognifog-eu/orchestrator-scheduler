@@ -25,14 +25,12 @@ const (
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
 	// gorm.Model
-	ID       uuid.UUID `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
-	UUID     uuid.UUID `gorm:"type:text" json:"uuid"`     // optional and unique across all icos
-	Type     JobType   `gorm:"type:text" json:"type"`
-	State    State     `gorm:"type:text" json:"state"`
-	Manifest string    `gorm:"type:text" json:"manifest"`
-	Targets  []Target  `json:"targets"` // array of targets where the Manifest is applied
-	// Policies?
-	// Requirements?
+	ID        uuid.UUID `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
+	UUID      uuid.UUID `gorm:"type:text" json:"uuid"`     // optional and unique across all icos
+	Type      JobType   `gorm:"type:text" json:"type"`
+	State     State     `gorm:"type:text" json:"state"`
+	Manifest  string    `gorm:"type:text" json:"manifest"`
+	Targets   []Target  `json:"targets"` // array of targets where the Manifest is applied
 	Locker    *bool     `json:"locker"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -46,7 +44,9 @@ type JobGroup struct {
 func (job *Job) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
 	job.ID = uuid.New()
-	*job.Locker = false
+	b := new(bool)
+	*b = false
+	job.Locker = b
 	return
 }
 
@@ -54,7 +54,7 @@ type Target struct {
 	ID          uint32 `gorm:"primary_key" json:"id"`
 	JobID       uuid.UUID
 	ClusterName string `json:"cluster_name"`
-	Hostname    string `json:"node_name"`
+	NodeName    string `json:"node_name"`
 	// what we need to know about peripherals
 	// TODO UPC&AGGREGATOR
 }
@@ -69,7 +69,9 @@ func JobTypeIsValid(value int) bool {
 
 func (j *Job) NewJobTTL() {
 	if time.Now().Unix()-j.UpdatedAt.Unix() > int64(300) {
-		*j.Locker = false
+		b := new(bool)
+		*b = false
+		j.Locker = b
 	}
 }
 
@@ -117,13 +119,13 @@ func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 func (j *Job) FindJobsToExecute(db *gorm.DB) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	db.Debug().Find(&jobs, "state =? AND locker = FALSE OR state =? AND locker = TRUE", int(Created), int(Progressing))
+	err = db.Debug().Preload("Targets").Find(&jobs, "state =? AND locker = FALSE OR state =? AND locker = TRUE AND updated_at < ?", int(Created), int(Progressing), time.Now().Local().Add(time.Second*time.Duration(-300))).Error
 	// err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
 	// 	Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
 	// 	Preload("Targets").Find(&jobs).Error
-	// if err != nil {
-	// 	return &[]Job{}, err
-	// }
+	if err != nil {
+		return &[]Job{}, err
+	}
 	return &jobs, err
 }
 
@@ -143,7 +145,7 @@ func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
 	}
 
 	// This is the display the updated Job
-	err := db.Debug().Model(&Job{}).Where("id = ?", uuid).Preload("Targets").Take(&j).Error
+	err := db.Debug().Model(Job{}).Where("id = ?", uuid).Preload("Targets").Take(&j).Error
 	if err != nil {
 		return &Job{}, err
 	}
@@ -154,8 +156,11 @@ func (j *Job) DeleteAJob(db *gorm.DB, uuid uuid.UUID) (int64, error) {
 
 	// db = db.Debug().Model(&Job{}).Where("id = ?", uid).Take(&Job{}).Delete(&Job{}) // debug only
 	// delete targets first
-	db = db.Select(j.Targets).Delete(&Job{ID: uuid})
-	// db = db.Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).Delete(&Job{})
+	// db = db.Select(j.Targets).Delete(&Job{ID: uuid})
+	// delete targets first
+	db = db.Model(&Target{}).Where("job_id = ?", uuid).Delete(&Target{})
+	// delete job
+	db = db.Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).Delete(&Job{})
 	if db.Error != nil {
 		return 0, db.Error
 	}

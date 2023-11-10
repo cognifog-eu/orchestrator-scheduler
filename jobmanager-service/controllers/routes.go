@@ -7,6 +7,8 @@ import (
 func (s *Server) initializeRoutes() {
 	// Home Route
 	s.Router.HandleFunc("/jobmanager", m.SetMiddlewareLog(m.SetMiddlewareJSON(s.Home))).Methods("GET")
+	//healthcheck
+	s.Router.HandleFunc("/jobmanager/healthz", s.HealthCheck).Methods("GET")
 	// JobManager Routes
 	// get all jobs GET <- driver
 	s.Router.HandleFunc("/jobmanager/jobs", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetAllJobs)))).Methods("GET")
@@ -14,12 +16,10 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/jobmanager/jobs/create", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.CreateJob)))).Methods("POST")
 	// get all jobs with specific state GET <- driver
 	s.Router.HandleFunc("/jobmanager/jobs/executable", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
-	// delete job / undeploy? DELETE <- shell
-	s.Router.HandleFunc("/jobmanager/jobs/{uuid}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJob)))).Methods("DELETE")
 	// get job status GET <- driver
-	s.Router.HandleFunc("/jobmanager/jobs/{uuid}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobByUUID)))).Methods("GET")
+	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobByUUID)))).Methods("GET")
 	// update job
-	s.Router.HandleFunc("/jobmanager/jobs/{uuid}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.UpdateAJob)))).Methods("PUT")
-
-	//healthcheck TODO
+	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.UpdateAJob)))).Methods("PUT")
+	// delete job / undeploy? DELETE <- shell
+	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJob)))).Methods("DELETE")
 }
