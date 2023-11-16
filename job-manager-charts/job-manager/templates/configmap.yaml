@@ -11,3 +11,7 @@ data:
   DB_PORT: {{ .Values.configMap.dbPort | quote }}
   DB_USER: {{ .Values.configMap.dbUser }}
   SERVER_PORT: {{ .Values.configMap.serverPort | quote }}
+  LIGHTHOUSE_BASE_URL: {{ .Values.configMap.lighthouseBaseUrl | quote }}
+  MATCHMAKING_URL: {{ .Values.configMap.matchmakingUrl | quote }}
+  KEYCLOAK_PUBLIC_KEY: {{ .Values.configMap.keycloakPublicKey | quote }}
+  
