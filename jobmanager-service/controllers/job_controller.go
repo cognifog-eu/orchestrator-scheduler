@@ -9,16 +9,17 @@ import (
 	"icos/server/jobmanager-service/utils/logs"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-const (
-	lighthouseBaseURL  = "http://lighthouse.icos-project.eu:8080"
+var (
+	lighthouseBaseURL  = os.Getenv("LIGHTHOUSE_BASE_URL")
 	apiV3              = "/api/v3"
-	matchmackerBaseURL = "http://147.83.159.195:24780/matchmake"
+	matchmackerBaseURL = os.Getenv("MATCHMAKING_URL")
 )
 
 func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
