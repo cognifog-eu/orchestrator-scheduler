@@ -158,7 +158,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses.JSON(w, http.StatusOK, jobCreated)
+	responses.JSON(w, http.StatusCreated, jobCreated)
 
 }
 
