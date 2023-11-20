@@ -1,14 +1,21 @@
 package controllers
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"icos/server/jobmanager-service/models"
+	"icos/server/jobmanager-service/utils/logs"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"log"
 
 	go_driver "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -67,6 +74,27 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 }
 
 func (server *Server) Run(addr string) {
-	fmt.Printf("Listening to port %s", addr)
-	log.Fatal(http.ListenAndServe(addr, server.Router))
+	logs.Logger.Println("Listening to port " + addr + " ...")
+	handler := cors.AllowAll().Handler(server.Router)
+
+	stop := make(chan os.Signal)
+	signal.Notify(stop, os.Interrupt)
+
+	go func() {
+		// init server
+		if err := http.ListenAndServe(addr, handler); err != nil {
+			if err != http.ErrServerClosed {
+				logs.Logger.Fatal(err)
+			}
+		}
+	}()
+
+	<-stop
+
+	// after stopping server
+	logs.Logger.Println("Closing connections ...")
+
+	var shutdownTimeout = flag.Duration("shutdown-timeout", 10*time.Second, "shutdown timeout (5s,5m,5h) before connections are cancelled")
+	_, cancel := context.WithTimeout(context.Background(), *shutdownTimeout)
+	defer cancel()
 }
