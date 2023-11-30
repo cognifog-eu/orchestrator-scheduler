@@ -102,8 +102,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	// MM Mock
 	targets = append(targets, models.Target{
-		ClusterName: "k3s-worker1",
-		NodeName:    "k3s-worker1",
+		ClusterName: "ocm-worker1",
+		NodeName:    "ocm-worker1",
 	})
 
 	// // create MM request
