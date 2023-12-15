@@ -56,7 +56,7 @@ func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// retrieves only executable jobs for now
+// retrieves only executable jobs for now; TODO: improve
 func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 	// vars := mux.Vars(r)
 	// state, err := strconv.ParseInt(vars["state"], 10, 32)
@@ -68,7 +68,7 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 
 	// gorm retrieve
 	job := models.Job{}
-	// retrieves jobs that are created && not locked or progressing && locked for more than a minute
+	// retrieves jobs that are created && not locked or progressing && locked for more than 5 minutes
 	jobGotten, err := job.FindJobsToExecute(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
@@ -79,9 +79,9 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
-
-	// receive manifest and unmarshall it to Manifest object
-	// jobTemp := models.Job{}
+	vars := mux.Vars(r)
+	appName := vars["app_name"]
+	logs.Logger.Println("Job group name is: " + appName)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -89,12 +89,6 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	bodyString := string(bodyBytes)
 	bodyStringTrimmed := strings.Trim(bodyString, "\r\n")
 	logs.Logger.Println("Trimmed body: " + bodyStringTrimmed)
-
-	// err = json.Unmarshal(body, &jobTemp.Manifest)
-	// if err != nil {
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
 
 	// validate job -> if unmarshalled without error = OK
 	// matchmaking + optimization = targets -> sync?
@@ -106,7 +100,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		NodeName:    "ocm-worker1",
 	})
 
-	// // create MM request
+	// create MM request
 	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
 	// if err != nil {
 	// 	logs.Logger.Println("ERROR " + err.Error())
@@ -120,7 +114,6 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// // // do request
 	// client := &http.Client{}
 	// resp, err := client.Do(req)
-	// // logger.Info("Rancher response is: " + resp.Status)
 	// if err != nil {
 	// 	logs.Logger.Println("ERROR " + err.Error())
 	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -145,20 +138,38 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	// append targets to jobs app description
-	// gorm save
 	job := models.Job{
 		Type:     models.CreateDeployment,
-		State:    models.Created,
+		State:    models.JobCreated,
 		Manifest: bodyStringTrimmed,
 		Targets:  targets,
+		Resource: models.Resource{
+			ResourceName: appName,
+		},
 	}
-	jobCreated, err := job.SaveJob(server.DB)
+
+	// TODO improve
+	jobs := []models.Job{}
+	jobs = append(jobs, job)
+	jobGroup := models.JobGroup{
+		AppName:        appName,
+		AppDescription: "test",
+		Jobs:           jobs,
+	}
+
+	// gorm save
+	_, err = jobGroup.SaveJobGroup(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+	// jobCreated, err := job.SaveJob(server.DB)
+	// if err != nil {
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
 
-	responses.JSON(w, http.StatusCreated, jobCreated)
+	responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
 
 }
 
@@ -193,9 +204,8 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := uuid.Parse(stringID)
-
+	resource := models.Resource{}
 	job := models.Job{}
-
 	bodyJob, err := io.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -206,7 +216,15 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	logs.Logger.Println("Reading job to update " + job.ID.String())
 
+	// update resource details first
+	_, err = resource.UpdateAResource(server.DB, job.ID, job.UUID)
+	if err != nil {
+		logs.Logger.Println("Resource were not found during Job update")
+		// responses.ERROR(w, http.StatusBadRequest, err)
+		// return
+	}
 	jobUpdated, err := job.UpdateAJob(server.DB, id)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
