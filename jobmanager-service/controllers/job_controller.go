@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,47 +96,47 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	var targets []models.Target
 
 	// MM Mock
-	targets = append(targets, models.Target{
-		ClusterName: "ocm-worker1",
-		NodeName:    "ocm-worker1",
-	})
+	// targets = append(targets, models.Target{
+	// 	ClusterName: "ocm-worker1",
+	// 	NodeName:    "ocm-worker1",
+	// })
 
 	// create MM request
-	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	req, err := http.NewRequest("GET", matchmackerBaseURL+"/matchmake", bytes.NewBuffer([]byte{}))
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
-	// // forward the authorization token
-	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// forward the authorization token
+	req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // // do request
-	// client := &http.Client{}
-	// resp, err := client.Do(req)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-	// defer resp.Body.Close()
+	// // do request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	defer resp.Body.Close()
 
-	// // direct body read
-	// bodyMM, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	// direct body read
+	bodyMM, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
-	// // parse to application objects
-	// err = json.Unmarshal(bodyMM, &targets)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	// parse to application objects
+	err = json.Unmarshal(bodyMM, &targets)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
 	// append targets to jobs app description
 	job := models.Job{
