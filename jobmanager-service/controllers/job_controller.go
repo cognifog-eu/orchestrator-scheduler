@@ -110,15 +110,11 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// add content type
-<<<<<<< HEAD
 	req.Header.Set("Content-Type", "application/x-yaml")
-=======
-	req.Header.Set("Content-Type", "application/yaml")
->>>>>>> main
 	// forward the authorization token
 	req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // do request
+	// do request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -128,7 +124,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("Matchmaking Request " + logs.FormatRequest(req))
+	fmt.Println("Matchmaking Request " + logs.FormatRequest(req))
 	logs.Logger.Println("Matchmaking Response " + resp.Status)
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		// direct body read
