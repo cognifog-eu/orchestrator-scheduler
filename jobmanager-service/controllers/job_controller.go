@@ -109,6 +109,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// add content type
+	req.Header.Set("Content-Type", "application/yaml")
 	// forward the authorization token
 	req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
@@ -157,7 +159,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		jobs = append(jobs, job)
 		jobGroup := models.JobGroup{
 			AppName:        appName,
-			AppDescription: "test",
+			AppDescription: "demo-hello-world",
 			Jobs:           jobs,
 		}
 
