@@ -102,7 +102,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// })
 
 	// create MM request
-	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer([]byte{}))
+	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
