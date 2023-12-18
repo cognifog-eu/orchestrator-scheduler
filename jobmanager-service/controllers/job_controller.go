@@ -93,7 +93,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 	// validate job -> if unmarshalled without error = OK
 	// matchmaking + optimization = targets -> sync?
-	var targets []models.Target
+	// var targets []models.Target
+	var mMResponseMapper models.MMResponseMapper
 
 	// MM Mock
 	// targets = append(targets, models.Target{
@@ -136,7 +137,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// parse to application objects
-		err = json.Unmarshal(bodyMM, &targets)
+		err = json.Unmarshal(bodyMM, &mMResponseMapper)
 		if err != nil {
 			logs.Logger.Println("ERROR " + err.Error())
 			responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -148,7 +149,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 			Type:     models.CreateDeployment,
 			State:    models.JobCreated,
 			Manifest: bodyStringTrimmed,
-			Targets:  targets,
+			Targets:  mMResponseMapper.Targets,
 			Resource: models.Resource{
 				ResourceName: appName,
 			},
