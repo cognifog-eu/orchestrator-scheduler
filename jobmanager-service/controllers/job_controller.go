@@ -102,7 +102,7 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// })
 
 	// create MM request
-	req, err := http.NewRequest("GET", matchmackerBaseURL+"/matchmake", bytes.NewBuffer([]byte{}))
+	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer([]byte{}))
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -122,56 +122,62 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// direct body read
-	bodyMM, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+		// direct body read
+		bodyMM, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			responses.ERROR(w, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		// parse to application objects
+		err = json.Unmarshal(bodyMM, &targets)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			responses.ERROR(w, http.StatusUnprocessableEntity, err)
+			return
+		}
+
+		// append targets to jobs app description
+		job := models.Job{
+			Type:     models.CreateDeployment,
+			State:    models.JobCreated,
+			Manifest: bodyStringTrimmed,
+			Targets:  targets,
+			Resource: models.Resource{
+				ResourceName: appName,
+			},
+		}
+
+		// TODO improve
+		jobs := []models.Job{}
+		jobs = append(jobs, job)
+		jobGroup := models.JobGroup{
+			AppName:        appName,
+			AppDescription: "test",
+			Jobs:           jobs,
+		}
+
+		// gorm save
+		_, err = jobGroup.SaveJobGroup(server.DB)
+		if err != nil {
+			responses.ERROR(w, http.StatusBadRequest, err)
+			return
+		}
+		// jobCreated, err := job.SaveJob(server.DB)
+		// if err != nil {
+		// 	responses.ERROR(w, http.StatusBadRequest, err)
+		// 	return
+		// }
+
+		responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
+	} else {
 		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
+		responses.ERROR(w, http.StatusInternalServerError, err)
 		return
 	}
-
-	// parse to application objects
-	err = json.Unmarshal(bodyMM, &targets)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	// append targets to jobs app description
-	job := models.Job{
-		Type:     models.CreateDeployment,
-		State:    models.JobCreated,
-		Manifest: bodyStringTrimmed,
-		Targets:  targets,
-		Resource: models.Resource{
-			ResourceName: appName,
-		},
-	}
-
-	// TODO improve
-	jobs := []models.Job{}
-	jobs = append(jobs, job)
-	jobGroup := models.JobGroup{
-		AppName:        appName,
-		AppDescription: "test",
-		Jobs:           jobs,
-	}
-
-	// gorm save
-	_, err = jobGroup.SaveJobGroup(server.DB)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	// jobCreated, err := job.SaveJob(server.DB)
-	// if err != nil {
-	// 	responses.ERROR(w, http.StatusBadRequest, err)
-	// 	return
-	// }
-
-	responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
-
 }
 
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
