@@ -121,7 +121,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-
+	logs.Logger.Println("Matchmaking Request " + req.URL.String())
+	logs.Logger.Println("Matchmaking Response " + resp.Status)
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		// direct body read
 		bodyMM, err := io.ReadAll(resp.Body)
@@ -173,7 +174,6 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 
 		responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
 	} else {
-		logs.Logger.Println("ERROR " + err.Error())
 		err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
 		responses.ERROR(w, http.StatusInternalServerError, err)
 		return
