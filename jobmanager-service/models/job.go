@@ -46,6 +46,12 @@ type Job struct {
 	Resource   Resource  `json:"resource"`
 }
 
+type MMResponseMapper struct {
+	ApiVersion string   `json:"apiVersion"`
+	Kind       string   `json:"kind"`
+	Targets    []Target `json:"targets"`
+}
+
 type Target struct {
 	ID          uint32 `gorm:"primary_key" json:"id"`
 	JobID       uuid.UUID
