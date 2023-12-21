@@ -104,3 +104,38 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 	responses.JSON(w, http.StatusOK, resourceStatus)
 
 }
+
+func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+	uuid, err := uuid.Parse(stringID)
+	resource := models.Resource{}
+	resourceBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	// parse to application objects
+	err = json.Unmarshal(resourceBody, &resource)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// update resource details first
+	_, err = resource.UpdateAResourceStatus(server.DB, uuid)
+	if err != nil {
+		logs.Logger.Println("Resource were not found during status update")
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, resource)
+}
