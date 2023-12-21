@@ -95,3 +95,18 @@ func (r *Resource) UpdateAResource(db *gorm.DB, jobId, uuid uuid.UUID) (*Resourc
 	}
 	return r, nil
 }
+
+func (r *Resource) UpdateAResourceStatus(db *gorm.DB, uuid uuid.UUID) (*Resource, error) {
+	logs.Logger.Println("Updating the resource: " + r.ID.String())
+	db = db.Debug().Model(&Resource{}).Where("id = ?", r.ID).Updates(Resource{Status: r.Status})
+	if db.Error != nil {
+		return &Resource{}, db.Error
+	}
+
+	// This is the display the updated Job
+	err := db.Debug().Model(Resource{}).Where("id = ?", uuid).Take(&r).Error
+	if err != nil {
+		return &Resource{}, err
+	}
+	return r, nil
+}

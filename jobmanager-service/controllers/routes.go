@@ -24,4 +24,6 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJob)))).Methods("DELETE")
 	// get resource status
 	s.Router.HandleFunc("/jobmanager/resources/status/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetResourceStateByUUID)))).Methods("GET")
+	// update status
+	s.Router.HandleFunc("/jobmanager/resources/status/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.UpdateResourceStateByUUID)))).Methods("PUT")
 }
