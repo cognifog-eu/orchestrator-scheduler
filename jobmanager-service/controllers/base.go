@@ -66,7 +66,7 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		server.DB.Exec("USE " + dbName)
 	}
 
-	server.DB.Debug().AutoMigrate(&models.JobGroup{}, &models.Job{}, &models.Target{}, &models.Resource{}, &models.Status{}) //database migration
+	server.DB.Debug().AutoMigrate(&models.JobGroup{}, &models.Job{}, &models.Target{}, &models.Resource{}, &models.Status{}, &models.Condition{}) //database migration
 
 	server.Router = mux.NewRouter()
 

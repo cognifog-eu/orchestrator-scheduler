@@ -30,7 +30,7 @@ type Resource struct {
 	JobID        uuid.UUID `json:"job_id"`
 	ResourceName string    `gorm:"type:text" json:"resource_name"`
 	// Target       Target    `json:"node_target"`
-	Status    Status    `json:"state"`
+	Status    Status    `json:"status"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
