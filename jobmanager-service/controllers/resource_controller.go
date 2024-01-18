@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"icos/server/jobmanager-service/models"
@@ -40,7 +39,7 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	uuid, err := uuid.Parse(stringID)
-	resourceStatus := models.Resource{}
+
 	// retrieve info from the job first. need extra info!
 	job := models.Job{}
 	jobGotten, err := job.FindJobByResourceUUID(server.DB, uuid)
@@ -49,59 +48,62 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 		responses.ERROR(w, http.StatusNotFound, err)
 		return
 	}
-	jobString, err := json.Marshal(jobGotten)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	logs.Logger.Println("Job found: " + string(jobString))
+
+	// ONLY VALID IN PUSH MODE
+	// resourceStatus := models.Resource{}
+	// jobString, err := json.Marshal(jobGotten)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
+	// logs.Logger.Println("Job found: " + string(jobString))
 	// this can have some sort of cache to avoid making requests to DM
 
-	// create DM request
-	req, err := http.NewRequest("GET", deployManagerBaseURL+"/deploy-manager/resource", bytes.NewBuffer([]byte{}))
-	query := req.URL.Query()
-	query.Add("uuid", uuid.String())
-	query.Add("node_target", jobGotten.Targets[0].NodeName)
-	query.Add("resource_name", jobGotten.Resource.ResourceName)
-	query.Encode()
-	logs.Logger.Println("request status to DM: " + req.URL.String())
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // create DM request
+	// req, err := http.NewRequest("GET", deployManagerBaseURL+"/deploy-manager/resource", bytes.NewBuffer([]byte{}))
+	// query := req.URL.Query()
+	// query.Add("uuid", uuid.String())
+	// query.Add("node_target", jobGotten.Targets[0].NodeName)
+	// query.Add("resource_name", jobGotten.Resource.ResourceName)
+	// query.Encode()
+	// logs.Logger.Println("request status to DM: " + req.URL.String())
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// forward the authorization token
-	req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// // forward the authorization token
+	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // do request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	defer resp.Body.Close()
+	// // // do request
+	// client := &http.Client{}
+	// resp, err := client.Do(req)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
+	// defer resp.Body.Close()
 
 	// direct body read
-	resourceStatusBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// resourceStatusBody, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	// parse to application objects
-	err = json.Unmarshal(resourceStatusBody, &resourceStatus)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
+	// // parse to application objects
+	// err = json.Unmarshal(resourceStatusBody, &resourceStatus)
+	// if err != nil {
+	// 	logs.Logger.Println("ERROR " + err.Error())
+	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
+	// 	return
+	// }
 
-	responses.JSON(w, http.StatusOK, resourceStatus)
+	responses.JSON(w, http.StatusOK, jobGotten.Resource)
 
 }
 
