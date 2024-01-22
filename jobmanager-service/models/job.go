@@ -43,7 +43,7 @@ type Job struct {
 	Targets    []Target  `json:"targets"` // array of targets where the Manifest is applied
 	Locker     *bool     `json:"locker"`
 	UpdatedAt  time.Time `json:"updated_at"`
-	Resource   Resource  `gorm:"foreignkey:JobID;" json:"resource"`
+	Resource   Resource  `gorm:"foreignkey:JobID;" json:"resource,omitempty"`
 }
 
 type MMResponseMapper struct {

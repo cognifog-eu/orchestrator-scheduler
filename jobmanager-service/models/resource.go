@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"icos/server/jobmanager-service/utils/logs"
 	"time"
 
@@ -28,10 +29,12 @@ type Resource struct {
 	// gorm.Model
 	ID           uuid.UUID `gorm:"type:char(36);primary_key"` // unique across all icos
 	JobID        uuid.UUID `json:"job_id"`
+	ResourceUUID uuid.UUID `gorm:"type:char(36)" json:"resource_uuid,omitempty"`
 	ResourceName string    `gorm:"type:text" json:"resource_name"`
 	// Target       Target    `json:"node_target"`
-	Status    Status    `json:"status"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	// Status    Status    `gorm:"foreignkey:ResourceID;" json:"status"`
+	Conditions []Condition `gorm:"foreignkey:ResourceID;" json:"conditions,omitempty"`
+	UpdatedAt  time.Time   `json:"updatedAt"`
 }
 
 func (Resource *Resource) BeforeCreate(tx *gorm.DB) (err error) {
@@ -40,15 +43,15 @@ func (Resource *Resource) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-type Status struct {
-	ID         uint32      `gorm:"primary_key" json:"id"`
-	ResourceID uuid.UUID   `gorm:"type:text" json:"uuid"`
-	Conditions []Condition `json:"conditions,omitempty"`
-}
+// type Status struct {
+// 	ID         uint32 `gorm:"primary_key" json:"id"`
+// 	ResourceID uuid.UUID
+// 	Conditions []Condition `json:"conditions,omitempty"`
+// }
 
 type Condition struct {
-	ID       uint32    `gorm:"primary_key" json:"id"`
-	StatusID uuid.UUID `gorm:"type:text" json:"uuid"`
+	ID         uint32 `gorm:"primary_key" json:"id"`
+	ResourceID uuid.UUID
 	// type of condition in CamelCase or in foo.example.com/CamelCase.
 	// ---
 	// Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
@@ -83,30 +86,64 @@ type Condition struct {
 
 func (r *Resource) UpdateAResource(db *gorm.DB, jobId, uuid uuid.UUID) (*Resource, error) {
 	logs.Logger.Println("Updating the resource: " + r.ID.String())
-	db = db.Debug().Model(&Resource{}).Where("job_id = ?", jobId).Updates(Resource{ID: uuid, Status: r.Status, ResourceName: r.ResourceName})
+	db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("job_id = ?", jobId).Updates(&Resource{ResourceUUID: r.ResourceUUID, Conditions: r.Conditions, ResourceName: r.ResourceName})
 	if db.Error != nil {
 		return &Resource{}, db.Error
 	}
 
 	// This is the display the updated Job
-	err := db.Debug().Model(Resource{}).Where("id = ?", uuid).Take(&r).Error
+	err := db.Debug().Model(Resource{}).Where("job_id = ?", jobId).Preload("Conditions").Take(&r).Error
 	if err != nil {
 		return &Resource{}, err
 	}
 	return r, nil
 }
 
-func (r *Resource) UpdateAResourceStatus(db *gorm.DB, uuid uuid.UUID) (*Resource, error) {
+func (r *Resource) AddCondition(db *gorm.DB, condition *Condition) (*Resource, error) {
+	// create condition
 	logs.Logger.Println("Updating the resource: " + r.ID.String())
-	db = db.Debug().Model(&Resource{}).Where("id = ?", r.ID).Updates(Resource{Status: r.Status})
-	if db.Error != nil {
+	// db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("id = ?", r.ID).Updates(&Resource{Conditions: r.Conditions})
+	err := db.Debug().Create(&condition)
+	if err != nil {
 		return &Resource{}, db.Error
 	}
+	// db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("id = ?", r.ID).Updates(Resource{Status: r.Status})
 
 	// This is the display the updated Job
-	err := db.Debug().Model(Resource{}).Where("id = ?", uuid).Take(&r).Error
+	err = db.Debug().Model(Resource{}).Where("resource_uuid =?", r.ResourceUUID).Preload("Conditions").Take(&r)
+	return r, err.Error
+}
+
+func (r *Resource) RemoveConditions(db *gorm.DB) (*Resource, error) {
+	// create condition
+	logs.Logger.Println("Updating the resource: " + r.ID.String())
+	// db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("id = ?", r.ID).Updates(&Resource{Conditions: r.Conditions})
+	// remove existing status first
+	logs.Logger.Println("Removing old status of the resource: " + r.ID.String())
+	conds := []Condition{}
+	err := db.Debug().Model(&Condition{}).Where("resource_id =?", r.ID).Find(&conds).Error
+	err = db.Delete(&conds).Error
+	if err != nil {
+		return &Resource{}, db.Error
+	}
+	return r, err
+}
+
+func (r *Resource) SaveResource(db *gorm.DB) (*Resource, error) {
+	err := db.Debug().Create(&r).Error
 	if err != nil {
 		return &Resource{}, err
 	}
 	return r, nil
+}
+
+func (r *Resource) FindResourceByUUID(db *gorm.DB, uuid uuid.UUID) (*Resource, error) {
+	err := db.Debug().Model(Resource{}).Where("job_id = ?", uuid).Preload("Conditions").Take(&r).Error
+	if err != nil {
+		return &Resource{}, err
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &Resource{}, errors.New("Job Not Found")
+	}
+	return r, err
 }

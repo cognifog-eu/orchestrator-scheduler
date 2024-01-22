@@ -41,8 +41,8 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 	uuid, err := uuid.Parse(stringID)
 
 	// retrieve info from the job first. need extra info!
-	job := models.Job{}
-	jobGotten, err := job.FindJobByResourceUUID(server.DB, uuid)
+	resource := models.Resource{}
+	resourceGotten, err := resource.FindResourceByUUID(server.DB, uuid)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusNotFound, err)
@@ -103,7 +103,7 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 	// 	return
 	// }
 
-	responses.JSON(w, http.StatusOK, jobGotten.Resource)
+	responses.JSON(w, http.StatusOK, resourceGotten.Conditions)
 
 }
 
@@ -131,13 +131,75 @@ func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// update resource details first
-	_, err = resource.UpdateAResourceStatus(server.DB, uuid)
+	// get resource from db, retrieve the job first
+	job := models.Job{}
+	jobGotten, err := job.FindJobByUUID(server.DB, resource.JobID)
 	if err != nil {
-		logs.Logger.Println("Resource were not found during status update")
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusNotFound, err)
+		return
+	}
+
+	// update resource details
+	// swap the ids.. TODO improve
+	resource.ResourceUUID = jobGotten.UUID
+	resource.ID = jobGotten.Resource.ID
+	logs.Logger.Println("Updating Resource Status: " + uuid.String())
+	resource.RemoveConditions(server.DB)
+	for _, condition := range resource.Conditions {
+		condition.ResourceID = resource.ID
+		_, err = resource.AddCondition(server.DB, &condition)
+		if err != nil {
+			logs.Logger.Println("Resource were not found during status update")
+			responses.ERROR(w, http.StatusBadRequest, err)
+			return
+		}
+	}
+	responses.JSON(w, http.StatusOK, resource)
+}
+
+func (server *Server) CreateResource(w http.ResponseWriter, r *http.Request) {
+	// vars := mux.Vars(r)
+	// stringID := vars["id"]
+	// if stringID == "" {
+	// 	err := errors.New("ID Cannot be empty")
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
+	// uuid, err := uuid.Parse(stringID)
+	resource := models.Resource{}
+	resourceBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	// parse to application objects
+	err = json.Unmarshal(resourceBody, &resource)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// gorm save
+	_, err = resource.SaveResource(server.DB)
+	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
 
+	// update resource details first
+	// logs.Logger.Println("Updating Resource Status: " + uuid.String())
+	// resource.RemoveConditions(server.DB)
+	// for _, condition := range resource.Conditions {
+	// 	condition.ResourceID = resource.ID
+	// 	_, err = resource.AddCondition(server.DB, &condition)
+	// 	if err != nil {
+	// 		logs.Logger.Println("Resource were not found during status update")
+	// 		responses.ERROR(w, http.StatusBadRequest, err)
+	// 		return
+	// 	}
+	// }
 	responses.JSON(w, http.StatusOK, resource)
 }
