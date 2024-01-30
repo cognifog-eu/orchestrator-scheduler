@@ -125,8 +125,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Matchmaking Request " + logs.FormatRequest(req))
-	logs.Logger.Println("Matchmaking Response " + resp.Status)
+	// fmt.Println("Matchmaking Request " + logs.FormatRequest(req))
+	// logs.Logger.Println("Matchmaking Response " + resp.Status)
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		// direct body read
 		bodyMM, err := io.ReadAll(resp.Body)
