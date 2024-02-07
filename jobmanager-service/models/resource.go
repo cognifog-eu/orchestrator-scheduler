@@ -2,7 +2,7 @@ package models
 
 import (
 	"errors"
-	"icos/server/jobmanager-service/utils/logs"
+	"etsn/server/jobmanager-service/utils/logs"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,7 +27,7 @@ const (
 
 type Resource struct {
 	// gorm.Model
-	ID           uuid.UUID `gorm:"type:char(36);primary_key"` // unique across all icos
+	ID           uuid.UUID `gorm:"type:char(36);primary_key"` // unique across all ecosystem
 	JobID        uuid.UUID `json:"job_id"`
 	ResourceUUID uuid.UUID `gorm:"type:char(36)" json:"resource_uuid,omitempty"`
 	ResourceName string    `gorm:"type:text" json:"resource_name"`

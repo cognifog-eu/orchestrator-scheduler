@@ -3,7 +3,7 @@ services:
   jobmanager-service:
     container_name: jobmanager
     build: .
-    image: registry.atosresearch.eu:18484/jobmanager-service:dev
+    image: registry.atosresearch.eu:18509/orch-scheduler-jobmanager:dev
     ports: 
       - 8082:8082 # Forward the exposed port 8081 on the container to port 8081 on the host machine
     environment: 

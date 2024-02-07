@@ -1,7 +1,7 @@
 package main
 
 import (
-	jobmanager_service "icos/server/jobmanager-service"
+	jobmanager_service "etsn/server/jobmanager-service"
 )
 
 func main() {

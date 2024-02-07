@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   # annotations:
   #   nginx.ingress.kubernetes.io/rewrite-target: /
-  name: icos-jobmanager
+  name: etsn-jobmanager
   namespace: default
 spec:
   ingressClassName: traefik

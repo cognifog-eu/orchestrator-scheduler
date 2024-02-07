@@ -1,8 +1,8 @@
 package server
 
 import (
+	"etsn/server/jobmanager-service/controllers"
 	"fmt"
-	"icos/server/jobmanager-service/controllers"
 	"os"
 )
 

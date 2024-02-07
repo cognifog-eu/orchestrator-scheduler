@@ -2,7 +2,7 @@ package models
 
 import (
 	"errors"
-	"icos/server/jobmanager-service/utils/logs"
+	"etsn/server/jobmanager-service/utils/logs"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,7 +35,7 @@ type JobGroup struct {
 type Job struct {
 	// gorm.Model
 	ID         uuid.UUID `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
-	UUID       uuid.UUID `gorm:"type:text" json:"uuid"`     // optional and unique across all icos
+	UUID       uuid.UUID `gorm:"type:text" json:"uuid"`     // optional and unique across all ecosystem
 	JobGroupID uuid.UUID `gorm:"type:text" json:"job_group_id"`
 	Type       JobType   `gorm:"type:text" json:"type"`
 	State      JobState  `gorm:"type:text" json:"state"`

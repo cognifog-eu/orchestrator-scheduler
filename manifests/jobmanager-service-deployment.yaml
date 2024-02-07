@@ -19,7 +19,7 @@ spec:
       automountServiceAccountToken: true
       containers:
       - name: jobmanager-service
-        image: registry.atosresearch.eu:18484/icos-jobmanager-svc:main
+        image: registry.atosresearch.eu:18509/orch-scheduler-jobmanager
         imagePullPolicy: Always 
         envFrom:
         - configMapRef:
@@ -27,5 +27,5 @@ spec:
         resources: {}
       restartPolicy: Always
       imagePullSecrets:
-        - name: nexusicossecret
+        - name: nexusetsnsecret
 status: {}

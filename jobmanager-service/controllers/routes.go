@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	m "icos/server/jobmanager-service/middlewares"
+	m "etsn/server/jobmanager-service/middlewares"
 )
 
 func (s *Server) initializeRoutes() {

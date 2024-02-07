@@ -2,10 +2,10 @@ package controllers
 
 import (
 	"context"
+	"etsn/server/jobmanager-service/models"
+	"etsn/server/jobmanager-service/utils/logs"
 	"flag"
 	"fmt"
-	"icos/server/jobmanager-service/models"
-	"icos/server/jobmanager-service/utils/logs"
 	"net/http"
 	"os"
 	"os/signal"

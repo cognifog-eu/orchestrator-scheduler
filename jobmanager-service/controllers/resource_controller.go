@@ -3,9 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"errors"
-	"icos/server/jobmanager-service/models"
-	"icos/server/jobmanager-service/responses"
-	"icos/server/jobmanager-service/utils/logs"
+	"etsn/server/jobmanager-service/models"
+	"etsn/server/jobmanager-service/responses"
+	"etsn/server/jobmanager-service/utils/logs"
 	"io"
 	"net/http"
 	"os"

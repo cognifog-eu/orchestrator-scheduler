@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"icos/server/jobmanager-service/responses"
+	"etsn/server/jobmanager-service/responses"
 	"net/http"
 )
 
