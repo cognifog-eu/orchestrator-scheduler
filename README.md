@@ -18,14 +18,16 @@ Job Manager Microservice: In charge of Creating and Managing Jobs that are pulle
 | SERVER_PORT      | Example: 8082            |
 
 
-## Build the application
+## Run containerized with embeded database
 
-`make build`
+Build application into container
 
-## Start test database
+`make build-container`
+
+Start application from container with embeded database
 
 `make start-database`
 
-## Run application
+## Run application locally
 
 `make run`
