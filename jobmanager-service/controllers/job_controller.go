@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"etsn/server/jobmanager-service/models"
@@ -97,12 +96,12 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	var mMResponseMapper models.MMResponseMapper
 
 	// MM Mock
-	// targets = append(targets, models.Target{
-	// 	ClusterName: "ocm-worker1",
-	// 	NodeName:    "ocm-worker1",
-	// })
+	mMResponseMapper.Targets = append(mMResponseMapper.Targets, models.Target{
+		ClusterName: "ocm-worker1",
+		NodeName:    "ocm-worker1",
+	})
 
-	// create MM request
+	/* // create MM request
 	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
@@ -143,45 +142,47 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 			responses.ERROR(w, http.StatusUnprocessableEntity, err)
 			return
 		}
+	*/
+	// append targets to jobs app description
+	job := models.Job{
+		Type:     models.CreateDeployment,
+		State:    models.JobCreated,
+		Manifest: bodyStringTrimmed,
+		Targets:  mMResponseMapper.Targets,
+		Resource: models.Resource{
+			ResourceName: appName,
+		},
+	}
 
-		// append targets to jobs app description
-		job := models.Job{
-			Type:     models.CreateDeployment,
-			State:    models.JobCreated,
-			Manifest: bodyStringTrimmed,
-			Targets:  mMResponseMapper.Targets,
-			Resource: models.Resource{
-				ResourceName: appName,
-			},
-		}
+	// TODO improve
+	jobs := []models.Job{}
+	jobs = append(jobs, job)
+	jobGroup := models.JobGroup{
+		AppName:        appName,
+		AppDescription: "demo-hello-world",
+		Jobs:           jobs,
+	}
 
-		// TODO improve
-		jobs := []models.Job{}
-		jobs = append(jobs, job)
-		jobGroup := models.JobGroup{
-			AppName:        appName,
-			AppDescription: "demo-hello-world",
-			Jobs:           jobs,
-		}
-
-		// gorm save
-		_, err = jobGroup.SaveJobGroup(server.DB)
-		if err != nil {
-			responses.ERROR(w, http.StatusBadRequest, err)
-			return
-		}
-		// jobCreated, err := job.SaveJob(server.DB)
-		// if err != nil {
-		// 	responses.ERROR(w, http.StatusBadRequest, err)
-		// 	return
-		// }
-
-		responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
-	} else {
-		err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
-		responses.ERROR(w, http.StatusInternalServerError, err)
+	// gorm save
+	_, err = jobGroup.SaveJobGroup(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+	// jobCreated, err := job.SaveJob(server.DB)
+	// if err != nil {
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
+
+	responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
+	/*
+		 	} else {
+				err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
+				responses.ERROR(w, http.StatusInternalServerError, err)
+				return
+			}
+	*/
 }
 
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {

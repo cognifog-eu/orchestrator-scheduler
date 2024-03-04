@@ -42,7 +42,7 @@ service:
   port: 8082
 
 ingress:
-  enabled: true
+  enabled: false
   className: "traefik"
   annotations: {}
     # kubernetes.io/ingress.class: nginx
@@ -69,8 +69,8 @@ configMap:
   dbUser: root
   serverPort: 8082
   lighthouseBaseUrl: http://lighthouse:8080
-  matchmakingUrl: http://matchmaking:8080
-  keycloakPublicKey: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgTGF4mKVEa+eWX0S/+EWIfkkqbLba5WuQ1KKGRQz+P56Y0WNRbgjNl0CObndffmixbpgp4kg5jKq78HoFFP7bj0jQSNC3P26K9xPolFXbAlNJe41VMdI7xOkOF0D9GCplEylGlUlCgpaBnbloI4WcbH+RQ6n6Qp6MmNE+/xC3OMMhgEBacbiGtIR71N/HcDYDUORE335sSRpkrHhMxk3eWgZdIyfX88n9UkI3CtgNGIGgF8/w7ZYF2XBmVuv5+QE9d5fM9pZKWQnzBnsMJy4Xc+qZrZMI45KCHIW/DSFVGSsGboiVHSNVOu3mNhPSjvJtIH/7lItCG6m5zvBAvNf8QIDAQAB
+  matchmakingUrl: ""
+  keycloakPublicKey: ""
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
