@@ -95,10 +95,10 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	// var targets []models.Target
 	var mMResponseMapper models.MMResponseMapper
 
-	// MM Mock
+	// MM Mock from env
 	mMResponseMapper.Targets = append(mMResponseMapper.Targets, models.Target{
-		ClusterName: "ocm-worker1",
-		NodeName:    "ocm-worker1",
+		ClusterName: os.Getenv("MOCK_TARGET_CLUSTER"),
+		NodeName:    os.Getenv("MOCK_TARGET_CLUSTER"),
 	})
 
 	/* // create MM request

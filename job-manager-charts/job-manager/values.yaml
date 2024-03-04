@@ -71,6 +71,7 @@ configMap:
   lighthouseBaseUrl: http://lighthouse:8080
   matchmakingUrl: ""
   keycloakPublicKey: ""
+  mockTargetCluster: "k3s-master3"
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
