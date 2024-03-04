@@ -30,9 +30,9 @@ func (server *Server) GetAllResources(w http.ResponseWriter, r *http.Request) {
 	responses.JSON(w, http.StatusOK, jobsGotten)
 }
 
-func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Request) {
+func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringID := vars["id"]
+	stringID := vars["job_id"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
@@ -108,14 +108,14 @@ func (server *Server) GetResourceStateByUUID(w http.ResponseWriter, r *http.Requ
 }
 
 func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stringID := vars["id"]
-	if stringID == "" {
-		err := errors.New("ID Cannot be empty")
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	uuid, err := uuid.Parse(stringID)
+	// vars := mux.Vars(r)
+	// stringID := vars["id"]
+	// if stringID == "" {
+	// 	err := errors.New("ID Cannot be empty")
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
+	// uuid, err := uuid.Parse(stringID)
 	resource := models.Resource{}
 	resourceBody, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -123,6 +123,7 @@ func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.R
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	logs.Logger.Println("Resource contents: " + string(resourceBody))
 	// parse to application objects
 	err = json.Unmarshal(resourceBody, &resource)
 	if err != nil {
@@ -133,18 +134,23 @@ func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.R
 
 	// get resource from db, retrieve the job first
 	job := models.Job{}
-	jobGotten, err := job.FindJobByUUID(server.DB, resource.JobID)
+	jobGotten, err := job.FindJobByResourceUUID(server.DB, resource.ResourceUUID)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusNotFound, err)
 		return
 	}
 
+	// debug
+	j, err := json.Marshal(jobGotten)
+	logs.Logger.Println("Job contents: " + string(j))
 	// update resource details
 	// swap the ids.. TODO improve
 	resource.ResourceUUID = jobGotten.UUID
 	resource.ID = jobGotten.Resource.ID
-	logs.Logger.Println("Updating Resource Status: " + uuid.String())
+	resource.JobID = jobGotten.ID
+	logs.Logger.Println("Updating Resource Status, Resource ID: " + resource.ID.String())
+	// updatedResource, err := resource.UpdateAResource(server.DB, job.ID, resource.ResourceUUID)
 	resource.RemoveConditions(server.DB)
 	for _, condition := range resource.Conditions {
 		condition.ResourceID = resource.ID

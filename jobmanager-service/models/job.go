@@ -53,10 +53,10 @@ type MMResponseMapper struct {
 }
 
 type Target struct {
-	ID          uint32 `gorm:"primary_key" json:"id"`
-	JobID       uuid.UUID
-	ClusterName string `json:"cluster_name"`
-	NodeName    string `json:"node_name"`
+	ID          uint32    `gorm:"primary_key" json:"-"`
+	JobID       uuid.UUID `json:"-"`
+	ClusterName string    `json:"cluster_name"`
+	NodeName    string    `json:"node_name"`
 	// what we need to know about peripherals
 	// TODO UPC&AGGREGATOR
 }

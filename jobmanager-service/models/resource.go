@@ -27,10 +27,10 @@ const (
 
 type Resource struct {
 	// gorm.Model
-	ID           uuid.UUID `gorm:"type:char(36);primary_key"` // unique across all ecosystem
+	ID           uuid.UUID `gorm:"type:char(36);primary_key" json:"-"` // unique across all ecosystem
 	JobID        uuid.UUID `json:"job_id"`
 	ResourceUUID uuid.UUID `gorm:"type:char(36)" json:"resource_uuid,omitempty"`
-	ResourceName string    `gorm:"type:text" json:"resource_name"`
+	ResourceName string    `gorm:"type:text" json:"resource_name,omitempty"`
 	// Target       Target    `json:"node_target"`
 	// Status    Status    `gorm:"foreignkey:ResourceID;" json:"status"`
 	Conditions []Condition `gorm:"foreignkey:ResourceID;" json:"conditions,omitempty"`
@@ -50,8 +50,8 @@ func (Resource *Resource) BeforeCreate(tx *gorm.DB) (err error) {
 // }
 
 type Condition struct {
-	ID         uint32 `gorm:"primary_key" json:"id"`
-	ResourceID uuid.UUID
+	ID         uint32    `gorm:"primary_key" json:"-"`
+	ResourceID uuid.UUID `json:"-"`
 	// type of condition in CamelCase or in foo.example.com/CamelCase.
 	// ---
 	// Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
@@ -86,7 +86,7 @@ type Condition struct {
 
 func (r *Resource) UpdateAResource(db *gorm.DB, jobId, uuid uuid.UUID) (*Resource, error) {
 	logs.Logger.Println("Updating the resource: " + r.ID.String())
-	db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("job_id = ?", jobId).Updates(&Resource{ResourceUUID: r.ResourceUUID, Conditions: r.Conditions, ResourceName: r.ResourceName})
+	db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("job_id = ?", jobId).Updates(&Resource{ResourceUUID: r.ResourceUUID, ResourceName: r.ResourceName})
 	if db.Error != nil {
 		return &Resource{}, db.Error
 	}
@@ -115,18 +115,14 @@ func (r *Resource) AddCondition(db *gorm.DB, condition *Condition) (*Resource, e
 }
 
 func (r *Resource) RemoveConditions(db *gorm.DB) (*Resource, error) {
-	// create condition
-	logs.Logger.Println("Updating the resource: " + r.ID.String())
-	// db = db.Session(&gorm.Session{FullSaveAssociations: true}).Where("id = ?", r.ID).Updates(&Resource{Conditions: r.Conditions})
-	// remove existing status first
 	logs.Logger.Println("Removing old status of the resource: " + r.ID.String())
-	conds := []Condition{}
-	err := db.Debug().Model(&Condition{}).Where("resource_id =?", r.ID).Find(&conds).Error
-	err = db.Delete(&conds).Error
+	// conds := []Condition{}
+	err := db.Debug().Model(&Condition{}).Where("resource_id =?", r.ID).Delete(&Condition{})
+	// err = db.Delete(&conds).Error
 	if err != nil {
 		return &Resource{}, db.Error
 	}
-	return r, err
+	return r, err.Error
 }
 
 func (r *Resource) SaveResource(db *gorm.DB) (*Resource, error) {
