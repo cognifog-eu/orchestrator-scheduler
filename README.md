@@ -16,6 +16,7 @@ Job Manager Microservice: In charge of Creating and Managing Jobs that are pulle
 | DB_HOST          | Example: localhost       |
 | DB_PORT          | Example: 3306            |
 | SERVER_PORT      | Example: 8082            |
+| MOCK_TARGET_CLUSTER | Temporary until there is a working matchmaking service |
 
 
 ## Run containerized with embeded database
