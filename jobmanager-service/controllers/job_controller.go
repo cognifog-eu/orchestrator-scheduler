@@ -1,39 +1,25 @@
-/*
-Copyright 2023 Bull SAS
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package controllers
 
 import (
-	"cognifog/server/jobmanager-service/models"
-	"cognifog/server/jobmanager-service/responses"
-	"cognifog/server/jobmanager-service/utils/logs"
 	"encoding/json"
 	"errors"
+	"etsn/server/jobmanager-service/models"
+	"etsn/server/jobmanager-service/responses"
+	"etsn/server/jobmanager-service/utils/logs"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-const (
-	lighthouseBaseURL  = ""
+var (
+	lighthouseBaseURL  = os.Getenv("LIGHTHOUSE_BASE_URL")
 	apiV3              = "/api/v3"
-	matchmackerBaseURL = ""
+	matchmackerBaseURL = os.Getenv("MATCHMAKING_URL")
 )
 
 func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +56,7 @@ func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// retrieves only executable jobs for now
+// retrieves only executable jobs for now; TODO: improve
 func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 	// vars := mux.Vars(r)
 	// state, err := strconv.ParseInt(vars["state"], 10, 32)
@@ -82,7 +68,7 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 
 	// gorm retrieve
 	job := models.Job{}
-	// retrieves jobs that are created && not locked or progressing && locked for more than a minute
+	// retrieves jobs that are created && not locked or progressing && locked for more than 5 minutes
 	jobGotten, err := job.FindJobsToExecute(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
@@ -93,9 +79,9 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
-
-	// receive manifest and unmarshall it to Manifest object
-	// jobTemp := models.Job{}
+	vars := mux.Vars(r)
+	appName := vars["app_name"]
+	logs.Logger.Println("Job group name is: " + appName)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -104,76 +90,99 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	bodyStringTrimmed := strings.Trim(bodyString, "\r\n")
 	logs.Logger.Println("Trimmed body: " + bodyStringTrimmed)
 
-	// err = json.Unmarshal(body, &jobTemp.Manifest)
-	// if err != nil {
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-
 	// validate job -> if unmarshalled without error = OK
 	// matchmaking + optimization = targets -> sync?
-	var targets []models.Target
+	// var targets []models.Target
+	var mMResponseMapper models.MMResponseMapper
 
-	// MM Mock
-	targets = append(targets, models.Target{
-		ClusterName: "k3s-worker1",
-		NodeName:    "k3s-worker1",
+	// MM Mock from env
+	mMResponseMapper.Targets = append(mMResponseMapper.Targets, models.Target{
+		ClusterName: os.Getenv("MOCK_TARGET_CLUSTER"),
+		NodeName:    os.Getenv("MOCK_TARGET_CLUSTER"),
 	})
 
-	// // create MM request
-	// req, err := http.NewRequest("GET", matchmackerBaseURL, bytes.NewBuffer([]byte{}))
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	/* // create MM request
+	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
 
-	// // forward the authorization token
-	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
+	// add content type
+	req.Header.Set("Content-Type", "application/x-yaml")
+	// forward the authorization token
+	req.Header.Add("Authorization", r.Header.Get("Authorization"))
 
-	// // // do request
-	// client := &http.Client{}
-	// resp, err := client.Do(req)
-	// // logger.Info("Rancher response is: " + resp.Status)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-	// defer resp.Body.Close()
+	// do request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logs.Logger.Println("ERROR " + err.Error())
+		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	defer resp.Body.Close()
 
-	// // direct body read
-	// bodyMM, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
+	// fmt.Println("Matchmaking Request " + logs.FormatRequest(req))
+	// logs.Logger.Println("Matchmaking Response " + resp.Status)
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+		// direct body read
+		bodyMM, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			responses.ERROR(w, http.StatusUnprocessableEntity, err)
+			return
+		}
 
-	// // parse to application objects
-	// err = json.Unmarshal(bodyMM, &targets)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-
+		// parse to application objects
+		err = json.Unmarshal(bodyMM, &mMResponseMapper)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			responses.ERROR(w, http.StatusUnprocessableEntity, err)
+			return
+		}
+	*/
 	// append targets to jobs app description
-	// gorm save
 	job := models.Job{
 		Type:     models.CreateDeployment,
-		State:    models.Created,
+		State:    models.JobCreated,
 		Manifest: bodyStringTrimmed,
-		Targets:  targets,
+		Targets:  mMResponseMapper.Targets,
+		Resource: models.Resource{
+			ResourceName: appName,
+		},
 	}
-	jobCreated, err := job.SaveJob(server.DB)
+
+	// TODO improve
+	jobs := []models.Job{}
+	jobs = append(jobs, job)
+	jobGroup := models.JobGroup{
+		AppName:        appName,
+		AppDescription: "demo-hello-world",
+		Jobs:           jobs,
+	}
+
+	// gorm save
+	_, err = jobGroup.SaveJobGroup(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+	// jobCreated, err := job.SaveJob(server.DB)
+	// if err != nil {
+	// 	responses.ERROR(w, http.StatusBadRequest, err)
+	// 	return
+	// }
 
-	responses.JSON(w, http.StatusOK, jobCreated)
-
+	responses.JSON(w, http.StatusCreated, jobGroup.Jobs[0]) // TODO change
+	/*
+		 	} else {
+				err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
+				responses.ERROR(w, http.StatusInternalServerError, err)
+				return
+			}
+	*/
 }
 
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
@@ -207,9 +216,8 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := uuid.Parse(stringID)
-
+	resource := models.Resource{}
 	job := models.Job{}
-
 	bodyJob, err := io.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -220,7 +228,15 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
+	logs.Logger.Println("Reading job to update " + job.ID.String())
 
+	// update resource details first
+	_, err = resource.UpdateAResource(server.DB, job.ID, job.UUID)
+	if err != nil {
+		logs.Logger.Println("Resource were not found during Job update")
+		// responses.ERROR(w, http.StatusBadRequest, err)
+		// return
+	}
 	jobUpdated, err := job.UpdateAJob(server.DB, id)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)

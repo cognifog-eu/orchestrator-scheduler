@@ -33,11 +33,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 FROM alpine:3.17
 RUN apk --no-cache add ca-certificates
 
-RUN addgroup -S cognifog && adduser -S cognifog -G cognifog -u 1001
-USER cognifog
+RUN addgroup -S etsn && adduser -S etsn -G etsn -u 1001
+USER etsn
 
 
-WORKDIR /home/cognifog/
+WORKDIR /home/etsn/
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /jobmanager-svc/main .

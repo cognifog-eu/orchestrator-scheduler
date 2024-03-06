@@ -29,7 +29,7 @@ spec:
                 name: mysql-secret
           envFrom:
             - configMapRef:
-                name: orch-scheduler-config
+                name: jobmanager-config
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql

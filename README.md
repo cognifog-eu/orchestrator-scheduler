@@ -1,6 +1,6 @@
-# COGNIFOG Orchestrator Scheduler
+# Job Manager
 
-COGNIFOG Orchestrator Scheduler Microservice: In charge of Creating and Managing Applications that are pulled by underlaying orchestrators
+Job Manager Microservice: In charge of Creating and Managing Jobs that are pulled by underlaying orchestrators
 
 # Getting Started
 
@@ -16,16 +16,19 @@ COGNIFOG Orchestrator Scheduler Microservice: In charge of Creating and Managing
 | DB_HOST          | Example: localhost       |
 | DB_PORT          | Example: 3306            |
 | SERVER_PORT      | Example: 8082            |
+| MOCK_TARGET_CLUSTER | Temporary until there is a working matchmaking service |
 
 
-## Build the application
+## Run containerized with embeded database
 
-`make build`
+Build application into container
 
-## Start test database
+`make build-container`
+
+Start application from container with embeded database
 
 `make start-database`
 
-## Run application
+## Run application locally
 
 `make run`

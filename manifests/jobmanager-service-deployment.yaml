@@ -2,30 +2,30 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: orch-scheduler-service
-  name: orch-scheduler-service
+    app: jobmanager-service
+  name: jobmanager-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: orch-scheduler-service
+      app: jobmanager-service
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: orch-scheduler-service
+        app: jobmanager-service
     spec:
       automountServiceAccountToken: true
       containers:
-      - name: orch-scheduler-service
-        image: registry.atosresearch.eu:18484/cognifog-orch-scheduler-svc:main
+      - name: jobmanager-service
+        image: registry.atosresearch.eu:18509/orch-scheduler-jobmanager
         imagePullPolicy: Always 
         envFrom:
         - configMapRef:
-            name: orch-scheduler-config
+            name: jobmanager-config
         resources: {}
       restartPolicy: Always
       imagePullSecrets:
-        - name: nexuscognifogsecret
+        - name: nexusetsnsecret
 status: {}

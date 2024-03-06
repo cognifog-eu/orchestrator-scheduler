@@ -1,28 +1,14 @@
-/*
-Copyright 2023 Bull SAS
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package middlewares
 
 import (
-	"cognifog/server/jobmanager-service/responses"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
+	"etsn/server/jobmanager-service/responses"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -30,7 +16,7 @@ import (
 )
 
 var (
-	base64EncodedPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgTGF4mKVEa+eWX0S/+EWIfkkqbLba5WuQ1KKGRQz+P56Y0WNRbgjNl0CObndffmixbpgp4kg5jKq78HoFFP7bj0jQSNC3P26K9xPolFXbAlNJe41VMdI7xOkOF0D9GCplEylGlUlCgpaBnbloI4WcbH+RQ6n6Qp6MmNE+/xC3OMMhgEBacbiGtIR71N/HcDYDUORE335sSRpkrHhMxk3eWgZdIyfX88n9UkI3CtgNGIGgF8/w7ZYF2XBmVuv5+QE9d5fM9pZKWQnzBnsMJy4Xc+qZrZMI45KCHIW/DSFVGSsGboiVHSNVOu3mNhPSjvJtIH/7lItCG6m5zvBAvNf8QIDAQAB"
+	base64EncodedPublicKey = os.Getenv("KEYCLOAK_PUBLIC_KEY")
 )
 
 func SetMiddlewareJSON(next http.HandlerFunc) http.HandlerFunc {
@@ -49,6 +35,13 @@ func SetMiddlewareLog(next http.HandlerFunc) http.HandlerFunc {
 
 func JWTValidation(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		if base64EncodedPublicKey == "" {
+			fmt.Println("No Authentication required")
+			next(w, r)
+			return
+		}
+
 		tokenString := r.Header.Get("Authorization")
 		splitToken := strings.Split(tokenString, "Bearer")
 		if len(splitToken) < 2 {

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: orch-scheduler-config
+  name: jobmanager-config
   namespace: default
 data:
   DB_DRIVER: mysql
