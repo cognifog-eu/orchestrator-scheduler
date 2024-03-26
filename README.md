@@ -2,6 +2,10 @@
 
 Job Manager Microservice: In charge of Creating and Managing Jobs that are pulled by underlaying orchestrators
 
+# Interfaces documentation
+
+Swagger Documentation is implemented into the asset. It may be found in the `docs` folder
+
 # Getting Started
 
 ## Set enviroment variables
