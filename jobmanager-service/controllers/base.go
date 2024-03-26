@@ -16,6 +16,7 @@ import (
 	go_driver "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -66,9 +67,17 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		server.DB.Exec("USE " + dbName)
 	}
 
-	server.DB.Debug().AutoMigrate(&models.JobGroup{}, &models.Job{}, &models.Target{}, &models.Resource{}, &models.Condition{}) // , &models.Status{},) //database migration
+	server.DB.Debug().AutoMigrate(&models.JobGroup{}, &models.Job{}, &models.Target{}, &models.Resource{}, &models.Condition{}, &models.Incompliance{}, &models.Subject{}) // , &models.Status{},) //database migration
 
 	server.Router = mux.NewRouter()
+
+	// swagger
+	server.Router.PathPrefix("/jobmanager/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("doc.json"), //The url pointing to API definition
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	)).Methods(http.MethodGet)
 
 	server.initializeRoutes()
 }

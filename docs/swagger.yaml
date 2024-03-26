@@ -1,0 +1,500 @@
+basePath: /
+definitions:
+  models.Condition:
+    properties:
+      lastTransitionTime:
+        description: |-
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+          +required
+        type: string
+      message:
+        description: |-
+          message is a human readable message indicating details about the transition.
+          This may be an empty string.
+          +required
+        type: string
+      observedGeneration:
+        description: |-
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+          with respect to the current state of the instance.
+          +optional
+        type: integer
+      reason:
+        description: |-
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+          Producers of specific condition types may define expected values and meanings for this field,
+          and whether the values are considered a guaranteed API.
+          The value should be a CamelCase string.
+          This field may not be empty.
+          +required
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.ConditionStatus'
+        description: |-
+          status of the condition, one of True, False, Unknown.
+          +required
+      type:
+        description: |-
+          type of condition in CamelCase or in foo.example.com/CamelCase.
+          ---
+          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+          useful (see .node.status.conditions), the ability to deconflict is important.
+          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+          +required
+        type: string
+    type: object
+  models.ConditionStatus:
+    enum:
+    - "True"
+    - "False"
+    - Unknown
+    type: string
+    x-enum-varnames:
+    - ConditionTrue
+    - ConditionFalse
+    - ConditionUnknown
+  models.Job:
+    properties:
+      id:
+        description: gorm.Model
+        type: string
+      job_group_description:
+        type: string
+      job_group_id:
+        description: unique across all ecosystem
+        type: string
+      job_group_name:
+        type: string
+      locker:
+        type: boolean
+      manifest:
+        type: string
+      namespace:
+        type: string
+      orchestrator:
+        allOf:
+        - $ref: '#/definitions/models.OrchestratorType'
+        description: identifies the orchestrator that can execute the job based on
+          target provided by MM
+      resource:
+        $ref: '#/definitions/models.Resource'
+      state:
+        $ref: '#/definitions/models.JobState'
+      targets:
+        description: array of targets where the Manifest is applied
+        items:
+          $ref: '#/definitions/models.Target'
+        type: array
+      type:
+        $ref: '#/definitions/models.JobType'
+      updated_at:
+        type: string
+      uuid:
+        description: optional and unique across all ecosystem
+        type: string
+    type: object
+  models.JobState:
+    enum:
+    - 1
+    - 2
+    - 3
+    - 4
+    type: integer
+    x-enum-varnames:
+    - JobCreated
+    - JobProgressing
+    - JobFinished
+    - JobDegraded
+  models.JobType:
+    enum:
+    - 5
+    - 6
+    - 7
+    - 8
+    type: integer
+    x-enum-varnames:
+    - CreateDeployment
+    - GetDeployment
+    - DeleteDeployment
+    - RecoveryJob
+  models.OrchestratorType:
+    enum:
+    - ocm
+    - nuvla
+    - none
+    type: string
+    x-enum-varnames:
+    - OCM
+    - Nuvla
+    - None
+  models.Resource:
+    properties:
+      conditions:
+        description: |-
+          Target       Target    `json:"node_target"`
+          Status    Status    `gorm:"foreignkey:ResourceID;" json:"status"`
+        items:
+          $ref: '#/definitions/models.Condition'
+        type: array
+      job_id:
+        type: string
+      resource_name:
+        type: string
+      resource_uuid:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.Target:
+    properties:
+      cluster_name:
+        type: string
+      node_name:
+        type: string
+      orchestrator:
+        $ref: '#/definitions/models.OrchestratorType'
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8082
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Job Manager Microservice.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Swagger Job Manager API
+  version: "1.0"
+paths:
+  /jobmanager/jobs:
+    get:
+      consumes:
+      - application/json
+      description: Get JobGroup
+      operationId: get-jobgroup
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "404":
+          description: Can not find JobGroup
+          schema:
+            type: string
+  /jobmanager/jobs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete job by id
+      operationId: delete-job-by-id
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "400":
+          description: ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find Job to delete
+          schema:
+            type: string
+    get:
+      consumes:
+      - application/json
+      description: get Job by UUID
+      operationId: get-job-by-uuid
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "400":
+          description: Job ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find Job by ID
+          schema:
+            type: string
+    put:
+      consumes:
+      - application/json
+      description: update a job
+      operationId: update-a-job
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Job information
+        in: body
+        name: Job
+        required: true
+        schema:
+          $ref: '#/definitions/models.Job'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find Job to update
+          schema:
+            type: string
+  /jobmanager/jobs/create/{app_name}:
+    post:
+      consumes:
+      - text/plain
+      description: create new Job
+      operationId: create-new-job
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Application name
+        in: path
+        name: app_name
+        required: true
+        type: string
+      - description: Application manifest YAML
+        in: body
+        name: application
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Application name is required
+          schema:
+            type: string
+  /jobmanager/jobs/executable:
+    get:
+      consumes:
+      - application/json
+      description: get Jobs by State
+      operationId: get-jobs-by-state
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Orchestrator type [ ocm | nuvla ]
+        in: header
+        name: orchestrator
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "400":
+          description: Orchestrator type is required
+          schema:
+            type: string
+        "404":
+          description: Can not find executable Jobs
+          schema:
+            type: string
+  /jobmanager/jobs/group/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete job group by id
+      operationId: delete-job-group-by-id
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: JobGroup ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "400":
+          description: ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find JobGroup to delete
+          schema:
+            type: string
+  /jobmanager/policies/incompliance/create:
+    post:
+      consumes:
+      - text/plain
+      description: create new Incompliance
+      operationId: create-new-incompliance
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Incompliance Object
+        in: body
+        name: application
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            $ref: '#/definitions/models.Job'
+        "400":
+          description: Incompliance Object is not correct
+          schema:
+            type: string
+  /jobmanager/resources/status/{id}:
+    put:
+      consumes:
+      - application/json
+      description: update a resource status by uuid
+      operationId: update-a-resource-status-by-uuid
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Resource UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Resource info
+        in: body
+        name: resource
+        required: true
+        schema:
+          $ref: '#/definitions/models.Resource'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "400":
+          description: ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find Resource to update
+          schema:
+            type: string
+  /jobmanager/resources/status/{job_id}:
+    get:
+      consumes:
+      - application/json
+      description: get resource status by job uuid
+      operationId: get-resource-status-by-job-uuid
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            $ref: '#/definitions/models.Resource'
+        "400":
+          description: Job ID is required
+          schema:
+            type: string
+        "404":
+          description: Can not find Job by ID
+          schema:
+            type: string
+securityDefinitions:
+  OAuth 2.0:
+    type: basic
+swagger: "2.0"

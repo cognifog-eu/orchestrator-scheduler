@@ -13,5 +13,6 @@ data:
   LIGHTHOUSE_BASE_URL: {{ .Values.configMap.lighthouseBaseUrl | quote }}
   MATCHMAKING_URL: {{ .Values.configMap.matchmakingUrl | quote }}
   KEYCLOAK_PUBLIC_KEY: {{ .Values.configMap.keycloakPublicKey | quote }}
+  POLICYMANAGER_URL: {{ .Values.configMap.policymanagerUrl | quote }}
   MOCK_TARGET_CLUSTER: {{ .Values.configMap.mockTargetCluster | quote }}
   

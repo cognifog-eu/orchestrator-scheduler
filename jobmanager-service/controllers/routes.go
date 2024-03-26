@@ -10,20 +10,26 @@ func (s *Server) initializeRoutes() {
 	//healthcheck
 	s.Router.HandleFunc("/jobmanager/healthz", s.HealthCheck).Methods("GET")
 	// JobManager Routes
-	// get all jobs GET <- driver
+	// get all jobs GET
 	s.Router.HandleFunc("/jobmanager/jobs", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetAllJobs)))).Methods("GET")
 	// request deployment POST <- shell
 	s.Router.HandleFunc("/jobmanager/jobs/create/{app_name}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.CreateJob)))).Methods("POST")
 	// get all jobs with specific state GET <- driver
-	s.Router.HandleFunc("/jobmanager/jobs/executable", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
+	s.Router.HandleFunc("/jobmanager/jobs/executable/orchestrator/{orchestrator}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
 	// get job status GET <- driver
 	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobByUUID)))).Methods("GET")
 	// update job
 	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.UpdateAJob)))).Methods("PUT")
-	// delete job / undeploy? DELETE <- shell
+	// delete job. DELETE <- shell
 	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJob)))).Methods("DELETE")
+	// get job group GET
+	s.Router.HandleFunc("/jobmanager/jobs/group/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobGroupByUUID)))).Methods("GET")
+	// delete jobGroup / undeploy. DELETE <- shell
+	s.Router.HandleFunc("/jobmanager/jobs/group/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJobGroup)))).Methods("DELETE")
 	// get resource status
 	s.Router.HandleFunc("/jobmanager/resources/status/{job_id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetResourceStateByJobUUID)))).Methods("GET")
 	// update status
 	s.Router.HandleFunc("/jobmanager/resources/status/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.UpdateResourceStateByUUID)))).Methods("PUT")
+	// create policy violation JM <- PM
+	s.Router.HandleFunc("/jobmanager/policies/incompliance/create", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.CreatePolicyIncompliance)))).Methods("POST")
 }
