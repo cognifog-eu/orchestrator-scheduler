@@ -8,15 +8,14 @@ import (
 	"etsn/server/jobmanager-service/utils/logs"
 	"io"
 	"net/http"
-	"os"
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-var (
-	deployManagerBaseURL = os.Getenv("DEPLOY_MANAGER_BASE_URL")
-)
+// var (
+// 	deployManagerBaseURL = os.Getenv("DEPLOY_MANAGER_BASE_URL")
+// )
 
 func (server *Server) GetAllResources(w http.ResponseWriter, r *http.Request) {
 	// gorm retrieve
@@ -30,6 +29,18 @@ func (server *Server) GetAllResources(w http.ResponseWriter, r *http.Request) {
 	responses.JSON(w, http.StatusOK, jobsGotten)
 }
 
+// GetResourceStateByJobUUID example
+//
+//	@Description	get resource status by job uuid
+//	@ID				get-resource-status-by-job-uuid
+//	@Accept			json
+//	@Produce		json
+//	@Param			Authorization	header		string			true	"Authentication header"
+//	@Param			job_id			path		string			true	"Job ID"
+//	@Success		200				{object}	models.Resource	"Ok"
+//	@Failure		400				{object}	string			"Job ID is required"
+//	@Failure		404				{object}	string			"Can not find Job by ID"
+//	@Router			/jobmanager/resources/status/{job_id} [get]
 func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	stringID := vars["job_id"]
@@ -39,6 +50,10 @@ func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.R
 		return
 	}
 	uuid, err := uuid.Parse(stringID)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
 
 	// retrieve info from the job first. need extra info!
 	resource := models.Resource{}
@@ -107,6 +122,19 @@ func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.R
 
 }
 
+// UpdateResourceStateByUUID example
+//
+//	@Description	update a resource status by uuid
+//	@ID				update-a-resource-status-by-uuid
+//	@Accept			json
+//	@Produce		json
+//	@Param			Authorization	header		string			true	"Authentication header"
+//	@Param			id				path		string			true	"Resource UUID"
+//	@Param			resource		body		models.Resource	true	"Resource info"
+//	@Success		200				{object}	string			"Ok"
+//	@Failure		400				{object}	string			"ID is required"
+//	@Failure		404				{object}	string			"Can not find Resource to update"
+//	@Router			/jobmanager/resources/status/{id} [put]
 func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.Request) {
 	// vars := mux.Vars(r)
 	// stringID := vars["id"]
@@ -143,6 +171,9 @@ func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.R
 
 	// debug
 	j, err := json.Marshal(jobGotten)
+	if err != nil {
+		logs.Logger.Println("ERROR during debug" + err.Error())
+	}
 	logs.Logger.Println("Job contents: " + string(j))
 	// update resource details
 	// swap the ids.. TODO improve

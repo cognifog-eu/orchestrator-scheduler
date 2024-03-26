@@ -117,12 +117,12 @@ func (r *Resource) AddCondition(db *gorm.DB, condition *Condition) (*Resource, e
 func (r *Resource) RemoveConditions(db *gorm.DB) (*Resource, error) {
 	logs.Logger.Println("Removing old status of the resource: " + r.ID.String())
 	// conds := []Condition{}
-	err := db.Debug().Model(&Condition{}).Where("resource_id =?", r.ID).Delete(&Condition{})
+	err := db.Debug().Model(&Condition{}).Where("resource_id =?", r.ID).Delete(&Condition{}).Error
 	// err = db.Delete(&conds).Error
 	if err != nil {
 		return &Resource{}, db.Error
 	}
-	return r, err.Error
+	return r, err
 }
 
 func (r *Resource) SaveResource(db *gorm.DB) (*Resource, error) {

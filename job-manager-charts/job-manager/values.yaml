@@ -71,6 +71,7 @@ configMap:
   lighthouseBaseUrl: http://lighthouse:8080
   matchmakingUrl: ""
   keycloakPublicKey: ""
+  policymanagerUrl: http://policy-manager:8080
   mockTargetCluster: "k3s-master3"
 
 resources: {}
