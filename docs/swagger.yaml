@@ -114,12 +114,14 @@ definitions:
     - 6
     - 7
     - 8
+    - 9
     type: integer
     x-enum-varnames:
     - CreateDeployment
     - GetDeployment
     - DeleteDeployment
     - RecoveryJob
+    - CreateNamespace
   models.OrchestratorType:
     enum:
     - ocm
@@ -393,6 +395,29 @@ paths:
             type: string
         "404":
           description: Can not find JobGroup to delete
+          schema:
+            type: string
+  /jobmanager/jobs/group/all:
+    get:
+      consumes:
+      - application/json
+      description: Get All JobGroups
+      operationId: get-all-jobGroups
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "404":
+          description: Can not find JobGroups
           schema:
             type: string
   /jobmanager/policies/incompliance/create:

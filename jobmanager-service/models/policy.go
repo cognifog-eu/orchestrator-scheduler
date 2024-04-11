@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,6 +33,13 @@ var (
 	policyManagerBaseURL = os.Getenv("POLICYMANAGER_URL")
 )
 
+type RemediationType string
+
+const (
+	ScaleUp   RemediationType = "scale-up"
+	ScaleDown RemediationType = "scale-down"
+)
+
 type Notification struct {
 	ID           uuid.UUID `json:"-"`
 	AppInstance  uuid.UUID `json:"app_instance"`
@@ -43,9 +50,10 @@ type Notification struct {
 }
 
 type Action struct {
-	URI             string            `json:"uri"`
-	HTTPMethod      string            `json:"http_method"`
-	ExtraParameters map[string]string `json:"updated_at"`
+	URI                string            `json:"uri"`
+	HTTPMethod         string            `json:"http_method"`
+	IncludeAccessToken bool              `json:"include_access_token"`
+	ExtraParameters    map[string]string `json:"updated_at"`
 }
 
 type ExtraParameters struct {
@@ -53,16 +61,16 @@ type ExtraParameters struct {
 }
 type Incompliance struct {
 	// gorm.Model
-	ID           uuid.UUID `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
-	ResourceID   uuid.UUID `json:"resource_id"`
-	CurrentValue string    `gorm:"type:text" json:"current_value,omitempty"`
-	Threshold    string    `gorm:"type:text" json:"threshold,omitempty"`
-	PolicyName   string    `gorm:"type:text" json:"policy_name"`
-	PolicyID     uuid.UUID `gorm:"type:text" json:"policy_id"`
-	ExtraLabels  []string  `gorm:"type:text" json:"extra_labels,omitempty"`
-	Subject      Subject   `gorm:"type:text" json:"subject,omitempty"`
-	Remediation  JobType   `gorm:"type:text" json:"remediation"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uuid.UUID       `gorm:"type:char(36);primary_key"` // lets abstract this id from the shell user -> TODO: should be uuid
+	ResourceID   uuid.UUID       `json:"resource_id"`
+	CurrentValue string          `gorm:"type:text" json:"currentValue,omitempty"`
+	Threshold    string          `gorm:"type:text" json:"threshold,omitempty"`
+	PolicyName   string          `gorm:"type:text" json:"policyName"`
+	PolicyID     uuid.UUID       `gorm:"type:text" json:"policyId"`
+	ExtraLabels  []string        `gorm:"type:text" json:"extraLabels,omitempty"`
+	Subject      Subject         `gorm:"type:text" json:"subject,omitempty"`
+	Remediation  RemediationType `gorm:"type:text" json:"remediation"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 type Subject struct {
@@ -79,8 +87,9 @@ func NotifyPolicyManager(db *gorm.DB, manifest string, jobGroup JobGroup, token 
 		AppInstance: jobGroup.ID,
 		Service:     "job-manager",
 		CommonAction: Action{
-			URI:        "/jobmanager/policies/incompliance/create",
-			HTTPMethod: "POST",
+			URI:                "/jobmanager/policies/incompliance/create",
+			HTTPMethod:         "POST",
+			IncludeAccessToken: true,
 		},
 		Manifest:  manifest,
 		UpdatedAt: time.Now(),

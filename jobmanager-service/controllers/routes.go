@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,13 +24,8 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/jobmanager", m.SetMiddlewareLog(m.SetMiddlewareJSON(s.Home))).Methods("GET")
 	//healthcheck
 	s.Router.HandleFunc("/jobmanager/healthz", s.HealthCheck).Methods("GET")
-	// JobManager Routes
 	// get all jobs GET
 	s.Router.HandleFunc("/jobmanager/jobs", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetAllJobs)))).Methods("GET")
-	// request deployment POST <- shell
-	s.Router.HandleFunc("/jobmanager/jobs/create/{app_name}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.CreateJob)))).Methods("POST")
-	// get all jobs with specific state GET <- driver
-	s.Router.HandleFunc("/jobmanager/jobs/executable/orchestrator/{orchestrator}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
 	// get job status GET <- driver
 	s.Router.HandleFunc("/jobmanager/jobs/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobByUUID)))).Methods("GET")
 	// update job
@@ -41,6 +36,12 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/jobmanager/jobs/group/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobGroupByUUID)))).Methods("GET")
 	// delete jobGroup / undeploy. DELETE <- shell
 	s.Router.HandleFunc("/jobmanager/jobs/group/{id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.DeleteJobGroup)))).Methods("DELETE")
+	// request deployment POST <- shell
+	s.Router.HandleFunc("/jobmanager/jobs/create/{app_name}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.CreateJob)))).Methods("POST")
+	// get all jobs with specific state GET <- driver
+	s.Router.HandleFunc("/jobmanager/jobs/executable/orchestrator/{orchestrator}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetJobsByState)))).Methods("GET")
+	// get all job groups GET
+	s.Router.HandleFunc("/jobmanager/jobgroups", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetAllJobGroups)))).Methods("GET")
 	// get resource status
 	s.Router.HandleFunc("/jobmanager/resources/status/{job_id}", m.SetMiddlewareLog(m.SetMiddlewareJSON(m.JWTValidation(s.GetResourceStateByJobUUID)))).Methods("GET")
 	// update status

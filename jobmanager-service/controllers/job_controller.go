@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,6 @@ import (
 	"errors"
 	"etsn/server/jobmanager-service/models"
 	"etsn/server/jobmanager-service/responses"
-	"etsn/server/jobmanager-service/utils"
 	"etsn/server/jobmanager-service/utils/logs"
 	"fmt"
 	"io"
@@ -32,6 +31,7 @@ import (
 
 	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -127,7 +127,7 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 	// gorm retrieve
 	job := models.Job{}
 	// retrieves jobs that are created && not locked or progressing && locked for more than 5 minutes
-	jobGotten, err := job.FindJobsToExecute(server.DB)
+	jobGotten, err := job.FindJobsToExecute(server.DB, orch)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -225,6 +225,8 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 			responses.ERROR(w, http.StatusUnprocessableEntity, err)
 			return
 		}
+		fmt.Printf("Matchmaking response details: %#v", mMResponseMapper)
+
 	*/
 	// initialize conditions
 	conditions := []models.Condition{
@@ -246,39 +248,62 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	// extract header block
+	headers := splittedManifests[0]
+	headerStruct := models.JobGroupHeader{}
+	yaml.Unmarshal([]byte(headers), &headerStruct)
+	logs.Logger.Println("Application Headers: " + headers)
+	fmt.Printf("%#v", headerStruct)
+
 	// create Job Group
 	jobGroup := models.JobGroup{
-		AppName:        appName,
-		AppDescription: appDesc,
+		AppName:        headerStruct.Name,
+		AppDescription: headerStruct.Description,
 	}
+
+	// // create unique namespace
+	// rs := utils.RandomString(10)
 
 	// remove policies block before parsing
 	// mMResponseMapper.Components = mMResponseMapper.Components[:len(mMResponseMapper.Components)-1]
 	// create job per component
 	for i, comp := range mMResponseMapper.Components {
-
-		// create unique namespace
-		rs := utils.RandomString(10)
+		// declare job per received component
+		job := models.Job{
+			Type:         models.CreateDeployment,
+			State:        models.JobCreated,
+			Manifest:     splittedManifests[i+1], // TODO, this could fail so easily..
+			Targets:      comp.Targets,
+			JobGroupName: jobGroup.AppName,
+			Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element
+			Namespace:    headerStruct.Namespace,       // Unique within a single cluster
+			Resource: models.Resource{
+				ResourceName: comp.Name,
+				Conditions:   conditions,
+			},
+		}
+		jobGroup.Jobs = append(jobGroup.Jobs, job)
+		logs.Logger.Println("New Job appended to JobGroup: " + job.JobGroupID.String())
 
 		// since we are iterating targets, for each target a job to create the namespace must be created
 		// this job contains a namespace declaration, but in only applies if the target is a kubernetes cluster
-		if comp.Targets[0].Orchestrator == "ocm" {
-			nSJob := models.Job{
-				Type:         models.CreateDeployment,
-				State:        models.JobCreated,
-				Manifest:     splittedManifests[i+1], // TODO, this could fail so easily..
-				Targets:      comp.Targets,
-				JobGoupName:  jobGroup.AppName,
-				Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element
-				Namespace:    appName + rs,                 // Unique within a single cluster
-				Resource: models.Resource{
-					ResourceName: comp.Name,
-					Conditions:   conditions,
-				},
-			}
-			jobGroup.Jobs = append(jobGroup.Jobs, nSJob)
-			logs.Logger.Println("Namespace appended to JobGroup: " + nSJob.Namespace)
-		}
+		// if comp.Targets[0].Orchestrator == "ocm" {
+		// 	nSJob := models.Job{
+		// 		Type:         models.CreateNamespace,
+		// 		State:        models.JobCreated,
+		// 		Manifest:     "", // namespace yaml declaration -> should be provided by DM
+		// 		Targets:      job.Targets,
+		// 		JobGroupName: jobGroup.AppName,
+		// 		Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element, proposal: remove array
+		// 		Namespace:    headerStruct.Namespace,       // Unique within a single cluster
+		// 		Resource: models.Resource{
+		// 			ResourceName: headerStruct.Namespace,
+		// 			Conditions:   conditions,
+		// 		},
+		// 	}
+		// 	jobGroup.Jobs = append(jobGroup.Jobs, nSJob)
+		// 	logs.Logger.Println("Namespace appended to JobGroup: " + nSJob.Namespace)
+		// }
 
 	}
 	// gorm save
@@ -418,6 +443,7 @@ func (server *Server) GetJobGroupByUUID(w http.ResponseWriter, r *http.Request) 
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+	fmt.Println("Parsed JobGroup ID to lookup: " + uuid.String())
 	// gorm retrieve
 	jobGroup := models.JobGroup{}
 	jobGroupGotten, err := jobGroup.FindJobGroupByUUID(server.DB, uuid)
@@ -464,4 +490,26 @@ func (server *Server) DeleteJobGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusOK, jobGroupDeleted)
+}
+
+// GetAllJobGroups example
+//
+//	@Description	Get All JobGroups
+//	@ID				get-all-jobGroups
+//	@Accept			json
+//	@Produce		json
+//	@Param			Authorization	header		string			true	"Authentication header"
+//	@Success		200				{string}	[]models.JobGroup	"Ok"
+//	@Failure		404				{object}	string			"Can not find JobGroups"
+//	@Router			/jobmanager/jobs/group/all [get]
+func (server *Server) GetAllJobGroups(w http.ResponseWriter, r *http.Request) {
+	// gorm retrieve
+	jobGroup := models.JobGroup{}
+	jobGroupsGotten, err := jobGroup.FindAllJobGroups(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, jobGroupsGotten)
 }

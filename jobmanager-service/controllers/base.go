@@ -34,6 +34,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type Server struct {
@@ -59,7 +60,9 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 			mysql.Config{
 				DSN:       DBURL,
 				DSNConfig: &config,
-			}), &gorm.Config{})
+			}), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+		})
 
 		if err != nil {
 			fmt.Printf("Cannot connect to %s database", dbdriver)

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,10 +18,13 @@ package models
 import (
 	"errors"
 	"etsn/server/jobmanager-service/utils/logs"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 )
 
 type JobState int
@@ -45,11 +48,23 @@ const (
 	GetDeployment
 	DeleteDeployment
 	RecoveryJob
+	CreateNamespace
 )
+
+type JobGroupHeader struct {
+	Name        string      `json:"name"`
+	Namespace   string      `json:"namespace"`
+	Description string      `json:"description"`
+	Components  []Component `json:"-"`
+}
+
+// type Manifest struct {
+// 	Name string `json:"name"`
+// }
 
 // hold information that N jobs share (N jobs needed to provide application x)
 type JobGroup struct {
-	ID             uuid.UUID `gorm:"type:char(36);primary_key"`
+	ID             uuid.UUID `gorm:"type:char(36);primaryKey"`
 	AppName        string    `json:"appName"`
 	AppDescription string    `json:"appDescription"`
 	Jobs           []Job     `json:"jobs"`
@@ -58,20 +73,20 @@ type JobGroup struct {
 // TODO: this Job is pulled by the drivers, we should agree on Jobs model
 type Job struct {
 	// gorm.Model
-	ID                 uuid.UUID        `gorm:"type:char(36);primary_key"`     // unique across all ecosystem
-	UUID               uuid.UUID        `gorm:"type:text" json:"uuid"`         // optional and unique across all ecosystem
-	JobGroupID         uuid.UUID        `gorm:"type:text" json:"job_group_id"` // unique across all ecosystem
-	JobGoupName        string           `gorm:"type:text" json:"job_group_name"`
-	JobGoupDescription string           `gorm:"type:text" json:"job_group_description,omitempty"`
-	Type               JobType          `gorm:"type:text" json:"type"`
-	State              JobState         `gorm:"type:text" json:"state"`
-	Manifest           string           `gorm:"type:text" json:"manifest"`
-	Targets            []Target         `json:"targets"` // array of targets where the Manifest is applied
-	Locker             *bool            `json:"locker"`
-	Orchestrator       OrchestratorType `gorm:"type:text" json:"orchestrator"` // identifies the orchestrator that can execute the job based on target provided by MM
-	UpdatedAt          time.Time        `json:"updated_at"`
-	Resource           Resource         `gorm:"foreignkey:JobID;" json:"resource,omitempty"`
-	Namespace          string           `gorm:"type:text" json:"namespace"`
+	ID                  uuid.UUID        `gorm:"type:char(36);primaryKey"`      // unique across all ecosystem
+	UUID                uuid.UUID        `gorm:"type:text" json:"uuid"`         // optional and unique across all ecosystem
+	JobGroupID          uuid.UUID        `gorm:"type:text" json:"job_group_id"` // unique across all ecosystem
+	JobGroupName        string           `gorm:"type:text" json:"job_group_name"`
+	JobGroupDescription string           `gorm:"type:text" json:"job_group_description,omitempty"`
+	Type                JobType          `gorm:"type:text" json:"type"`
+	State               JobState         `gorm:"type:text" json:"state"`
+	Manifest            string           `gorm:"type:text" json:"manifest"`
+	Targets             []Target         `json:"targets"` // array of targets where the Manifest is applied
+	Locker              *bool            `json:"locker"`
+	Orchestrator        OrchestratorType `gorm:"type:text" json:"orchestrator"` // identifies the orchestrator that can execute the job based on target provided by MM
+	UpdatedAt           time.Time        `json:"updated_at"`
+	Resource            Resource         `gorm:"foreignkey:JobID;" json:"resource,omitempty"`
+	Namespace           string           `gorm:"type:text" json:"namespace"`
 }
 
 type MMResponseMapper struct {
@@ -86,7 +101,7 @@ type Component struct {
 }
 
 type Target struct {
-	ID           uint32           `gorm:"primary_key" json:"-"`
+	ID           uint32           `gorm:"primaryKey" json:"-"`
 	JobID        uuid.UUID        `json:"-"`
 	ClusterName  string           `json:"cluster_name"`
 	NodeName     string           `json:"node_name,omitempty"`
@@ -187,10 +202,11 @@ func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 	return &jobs, err
 }
 
-func (j *Job) FindJobsToExecute(db *gorm.DB) (*[]Job, error) {
+func (j *Job) FindJobsToExecute(db *gorm.DB, orch string) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	err = db.Debug().Preload("Targets").Preload("Resource").Find(&jobs, "state =? AND locker = FALSE AND orchestrator =? OR state =? AND locker = TRUE AND orchestrator =? AND updated_at < ?", int(JobCreated), j.Orchestrator, int(Progressing), j.Orchestrator, time.Now().Local().Add(time.Second*time.Duration(-300))).Error
+	err = db.Debug().Preload("Targets").Preload("Resource").Find(&jobs, "state =? AND locker = FALSE AND orchestrator =? OR state =? AND locker = TRUE AND orchestrator =? AND updated_at < ?", int(JobCreated), orch, int(Progressing), orch, time.Now().Local().Add(time.Second*time.Duration(-300))).Error
+	db.Logger.LogMode(logger.Info)
 	// err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
 	// 	Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
 	// 	Preload("Targets").Find(&jobs).Error
@@ -250,15 +266,18 @@ func (jg *JobGroup) UpdateAJobGroup(db *gorm.DB, uuid uuid.UUID) (*JobGroup, err
 }
 
 func (jg *JobGroup) FindJobGroupByUUID(db *gorm.DB, uuid uuid.UUID) (*JobGroup, error) {
-	// err := db.Debug().Model(JobGroup{}).Where("id = ?", uuid).Preload("Jobs").Take(&j).Error
-	err := db.Preload("Jobs.Resource.Conditions").Find(&jg).Where("id = ?", uuid).Error
+	var app *JobGroup
+	fmt.Println("Querying for JobGroup's ID: " + uuid.String())
+	// err := db.Preload("Jobs.Resource.Conditions").Find(&app).Where("id = ?", uuid).Error
+	err := db.Preload(clause.Associations).Preload("Jobs."+clause.Associations).Preload("Jobs.Resource.Conditions").Find(&app).Where("id = ?", uuid).Error
+	db.Logger.LogMode(logger.Info)
 	if err != nil {
 		return &JobGroup{}, err
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &JobGroup{}, errors.New("JobGroup Not Found")
 	}
-	return jg, err
+	return app, err
 }
 
 func (jg *JobGroup) DeleteAJobGroup(db *gorm.DB, uuid uuid.UUID) (int64, error) {
@@ -272,4 +291,16 @@ func (jg *JobGroup) DeleteAJobGroup(db *gorm.DB, uuid uuid.UUID) (int64, error) 
 		return 0, db.Error
 	}
 	return db.RowsAffected, nil
+}
+
+func (jg *JobGroup) FindAllJobGroups(db *gorm.DB) (*[]JobGroup, error) {
+	var err error
+	jobGroups := []JobGroup{}
+	// err = db.Preload("Jobs.Resources.Conditions").Preload().Find(&jobGroups).Error
+	err = db.Preload(clause.Associations).Preload("Jobs." + clause.Associations).Preload("Jobs.Resource.Conditions").Find(&jobGroups).Error
+	// err = db.Model(&Menu{}).Where("pid = ?", 0).Preload(clause.Associations, preload).Find(&views).Error
+	if err != nil {
+		return &[]JobGroup{}, err
+	}
+	return &jobGroups, err
 }

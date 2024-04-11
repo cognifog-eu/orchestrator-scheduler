@@ -173,6 +173,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/jobmanager/jobs/group/all": {
+            "get": {
+                "description": "Get All JobGroups",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-all-jobGroups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Authentication header",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Can not find JobGroups",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/jobmanager/jobs/group/{id}": {
             "delete": {
                 "description": "delete job group by id",
@@ -647,13 +682,15 @@ const docTemplate = `{
                 5,
                 6,
                 7,
-                8
+                8,
+                9
             ],
             "x-enum-varnames": [
                 "CreateDeployment",
                 "GetDeployment",
                 "DeleteDeployment",
-                "RecoveryJob"
+                "RecoveryJob",
+                "CreateNamespace"
             ]
         },
         "models.OrchestratorType": {
