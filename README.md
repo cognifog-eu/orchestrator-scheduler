@@ -6,6 +6,8 @@ Job Manager Microservice: In charge of Creating and Managing Jobs that are pulle
 
 Swagger Documentation is implemented into the asset. It may be found in the `docs` folder
 
+An example of the data model recieved by the component may be found at the [Dashboard documentation](https://https://github.com/cognifog-eu/comprehensive-dashboard/blob/9cef08ed227a661eca467d843ecbfa0520695c67/README.md#yaml-based-syntax)
+
 # Getting Started
 
 ## Set enviroment variables
