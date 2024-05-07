@@ -24,14 +24,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type ResourceState int
+type ResourceState string
 type ConditionStatus string
 
 const (
-	Progressing ResourceState = iota + 1
-	Applied
-	Available
-	Degraded
+	Progressing ResourceState = "Progressing"
+	Applied     ResourceState = "Applied"
+	Available   ResourceState = "Available"
+	Degraded    ResourceState = "Degraded"
 )
 
 const (
@@ -73,7 +73,7 @@ type Condition struct {
 	// useful (see .node.status.conditions), the ability to deconflict is important.
 	// The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
 	// +required
-	Type string `json:"type" protobuf:"bytes,1,opt,name=type"`
+	Type ResourceState `json:"type" protobuf:"bytes,1,opt,name=type"`
 	// status of the condition, one of True, False, Unknown.
 	// +required
 	Status ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status"`

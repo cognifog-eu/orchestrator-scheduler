@@ -18,7 +18,6 @@ package models
 import (
 	"errors"
 	"etsn/server/jobmanager-service/utils/logs"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,11 +50,19 @@ const (
 	CreateNamespace
 )
 
+var JobTypeFromString = map[string]JobType{
+	"CreateDeployment": CreateDeployment,
+	"GetDeployment":    GetDeployment,
+	"DeleteDeployment": DeleteDeployment,
+	"RecoveryJob":      RecoveryJob,
+	"CreateNamespace":  CreateNamespace,
+}
+
 type JobGroupHeader struct {
 	Name        string      `json:"name"`
 	Namespace   string      `json:"namespace"`
 	Description string      `json:"description"`
-	Components  []Component `json:"-"`
+	Components  []Component `json:"components"`
 }
 
 // type Manifest struct {
@@ -80,6 +87,7 @@ type Job struct {
 	JobGroupDescription string           `gorm:"type:text" json:"job_group_description,omitempty"`
 	Type                JobType          `gorm:"type:text" json:"type"`
 	State               JobState         `gorm:"type:text" json:"state"`
+	Manifests           []PlainManifests `json:"manifests"`
 	Manifest            string           `gorm:"type:text" json:"manifest"`
 	Targets             []Target         `json:"targets"` // array of targets where the Manifest is applied
 	Locker              *bool            `json:"locker"`
@@ -89,15 +97,37 @@ type Job struct {
 	Namespace           string           `gorm:"type:text" json:"namespace"`
 }
 
-type MMResponseMapper struct {
-	Components []Component `json:"components"`
-}
+// type MatchmakingResWrapper struct {
+// 	Components []Component `json:"components"`
+// }
 
 type Component struct {
-	Name      string   `json:"name"`
-	Kind      string   `json:"kind,omitempty"`
-	Manifests string   `json:"manifests,omitempty"`
-	Targets   []Target `json:"targets"`
+	Name      string     `json:"name"`
+	Type      string     `json:"type,omitempty"`
+	Manifests []Manifest `json:"manifests,omitempty"`
+	Targets   []Target   `json:"targets,omitempty"`
+}
+
+type PlainManifests struct {
+	ID         uint32    `gorm:"primaryKey" json:"-"`
+	JobID      uuid.UUID `json:"-"`
+	YamlString string    `json:"yamlString"`
+}
+
+type Manifest struct {
+	Name string `json:"name"`
+}
+
+type K8sMapper struct {
+	ApiVersion string            `json:"apiVersion"`
+	Kind       string            `json:"kind"`
+	Metadata   K8sMapperMetadata `json:"metadata"`
+}
+
+type K8sMapperMetadata struct {
+	Name      string            `json:"name,omitempty"`
+	Namespace string            `json:"namespace,omitempty"`
+	Labels    map[string]string `json:"labels"`
 }
 
 type Target struct {
@@ -123,9 +153,9 @@ func (jobGroup *JobGroup) BeforeCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-func StateIsValid(value int) bool {
-	return int(JobCreated) >= value && value <= int(Degraded)
-}
+// func StateIsValid(value int) bool {
+// 	return int(JobCreated) >= value && value <= int(Degraded)
+// }
 
 func OrchestratorTypeMapper(orchestratorType string) OrchestratorType {
 
@@ -205,7 +235,7 @@ func (j *Job) FindJobsByState(db *gorm.DB, state int) (*[]Job, error) {
 func (j *Job) FindJobsToExecute(db *gorm.DB, orch string) (*[]Job, error) {
 	var err error
 	jobs := []Job{}
-	err = db.Debug().Preload("Targets").Preload("Resource").Find(&jobs, "state =? AND locker = FALSE AND orchestrator =? OR state =? AND locker = TRUE AND orchestrator =? AND updated_at < ?", int(JobCreated), orch, int(Progressing), orch, time.Now().Local().Add(time.Second*time.Duration(-300))).Error
+	err = db.Debug().Preload("Targets").Preload("Resource").Find(&jobs, "state =? AND locker = FALSE AND orchestrator =? OR state =? AND locker = TRUE AND orchestrator =? AND updated_at < ?", int(JobCreated), orch, Progressing, orch, time.Now().Local().Add(time.Second*time.Duration(-300))).Error
 	db.Logger.LogMode(logger.Info)
 	// err = db.Debug().Model(&Job{}).Where(db.Where("state = ?", int(Created)).Where("locker = ?", false)).
 	// 	Or(db.Where("state = ?", int(Progressing)).Where("locker = ?", true)).Where("updated_at < ?", time.Now().Local().Add(time.Second*time.Duration(-300))).
@@ -216,32 +246,51 @@ func (j *Job) FindJobsToExecute(db *gorm.DB, orch string) (*[]Job, error) {
 	return &jobs, err
 }
 
-func (j *Job) UpdateAJob(db *gorm.DB, uuid uuid.UUID) (*Job, error) {
+func (j *Job) UpdateAJob(db *gorm.DB) (*Job, error) {
 	// trigger TTL ticker on each writing access except the CreateJob
-	logs.Logger.Println("Setting new TTL for the Job before update: " + j.ID.String())
-	j.NewJobTTL()
-	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Updates(Job{UUID: j.UUID, State: j.State, UpdatedAt: time.Now(), Locker: j.Locker})
+	// logs.Logger.Println("Setting new TTL for the Job before update: " + j.ID.String())
+	// j.NewJobTTL()
+	db = db.Debug().Model(&Job{}).Where("id = ?", j.ID).Updates(
+		Job{UUID: j.UUID, State: j.State, Manifest: j.Manifest, Orchestrator: j.Orchestrator, UpdatedAt: time.Now()})
 	if db.Error != nil {
 		return &Job{}, db.Error
 	}
 
 	// This is the display the updated Job
-	err := db.Debug().Model(Job{}).Where("id = ?", uuid).Preload("Targets").Preload("Resource").Take(&j).Error
+	err := db.Debug().Model(Job{}).Where("id = ?", j.ID).Preload("Targets").Preload("Resource").Take(&j).Error
 	if err != nil {
 		return &Job{}, err
 	}
 	return j, nil
 }
 
-func (j *Job) DeleteAJob(db *gorm.DB, uuid uuid.UUID) (int64, error) {
+func (j *Job) JobLocker(db *gorm.DB) (*Job, error) {
+	// trigger TTL ticker on each writing access except the CreateJob
+	logs.Logger.Println("Setting new TTL for the Job before update: " + j.ID.String())
+	// j.NewJobTTL()
+	db = db.Debug().Model(&Job{}).Where("id = ?", j.ID).Updates(
+		Job{Locker: j.Locker, UpdatedAt: time.Now()})
+	if db.Error != nil {
+		return &Job{}, db.Error
+	}
+
+	// This is the display the updated Job
+	err := db.Debug().Model(Job{}).Where("id = ?", j.ID).Preload("Targets").Preload("Resource").Take(&j).Error
+	if err != nil {
+		return &Job{}, err
+	}
+	return j, nil
+}
+
+func (j *Job) DeleteAJob(db *gorm.DB) (int64, error) {
 
 	// db = db.Debug().Model(&Job{}).Where("id = ?", uid).Take(&Job{}).Delete(&Job{}) // debug only
 	// delete targets first
 	// db = db.Select(j.Targets).Delete(&Job{ID: uuid})
 	// delete targets first
-	db = db.Model(&Target{}).Where("job_id = ?", uuid).Delete(&Target{})
+	db = db.Model(&Target{}).Where("job_id = ?", j.ID).Delete(&Target{})
 	// delete job
-	db = db.Model(&Job{}).Where("id = ?", uuid).Take(&Job{}).Delete(&Job{})
+	db = db.Model(&Job{}).Where("id = ?", j.ID).Take(&Job{}).Delete(&Job{})
 	if db.Error != nil {
 		return 0, db.Error
 	}
@@ -267,7 +316,7 @@ func (jg *JobGroup) UpdateAJobGroup(db *gorm.DB, uuid uuid.UUID) (*JobGroup, err
 
 func (jg *JobGroup) FindJobGroupByUUID(db *gorm.DB, uuid uuid.UUID) (*JobGroup, error) {
 	var app *JobGroup
-	fmt.Println("Querying for JobGroup's ID: " + uuid.String())
+	logs.Logger.Println("Querying for JobGroup's ID: " + uuid.String())
 	// err := db.Preload("Jobs.Resource.Conditions").Find(&app).Where("id = ?", uuid).Error
 	err := db.Preload(clause.Associations).Preload("Jobs."+clause.Associations).Preload("Jobs.Resource.Conditions").Find(&app).Where("id = ?", uuid).Error
 	db.Logger.LogMode(logger.Info)
@@ -303,4 +352,12 @@ func (jg *JobGroup) FindAllJobGroups(db *gorm.DB) (*[]JobGroup, error) {
 		return &[]JobGroup{}, err
 	}
 	return &jobGroups, err
+}
+
+func (jg *JobGroup) UpdateJobGroupState(db *gorm.DB, uuid uuid.UUID) (*JobGroup, error) {
+	db = db.Debug().Model(&Job{}).Where("id = ?", uuid).Updates(JobGroup{Jobs: jg.Jobs})
+	if db.Error != nil {
+		return &JobGroup{}, db.Error
+	}
+	return jg, nil
 }

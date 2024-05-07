@@ -37,6 +37,8 @@ definitions:
           status of the condition, one of True, False, Unknown.
           +required
       type:
+        allOf:
+        - $ref: '#/definitions/models.ResourceState'
         description: |-
           type of condition in CamelCase or in foo.example.com/CamelCase.
           ---
@@ -44,7 +46,6 @@ definitions:
           useful (see .node.status.conditions), the ability to deconflict is important.
           The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
           +required
-        type: string
     type: object
   models.ConditionStatus:
     enum:
@@ -72,6 +73,10 @@ definitions:
         type: boolean
       manifest:
         type: string
+      manifests:
+        items:
+          $ref: '#/definitions/models.PlainManifests'
+        type: array
       namespace:
         type: string
       orchestrator:
@@ -114,11 +119,9 @@ definitions:
     - 6
     - 7
     - 8
-    - 9
     type: integer
     x-enum-varnames:
     - CreateDeployment
-    - GetDeployment
     - DeleteDeployment
     - RecoveryJob
     - CreateNamespace
@@ -132,6 +135,11 @@ definitions:
     - OCM
     - Nuvla
     - None
+  models.PlainManifests:
+    properties:
+      yamlString:
+        type: string
+    type: object
   models.Resource:
     properties:
       conditions:
@@ -150,6 +158,18 @@ definitions:
       updatedAt:
         type: string
     type: object
+  models.ResourceState:
+    enum:
+    - Progressing
+    - Applied
+    - Available
+    - Degraded
+    type: string
+    x-enum-varnames:
+    - Progressing
+    - Applied
+    - Available
+    - Degraded
   models.Target:
     properties:
       cluster_name:
@@ -180,8 +200,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get JobGroup
-      operationId: get-jobgroup
+      description: Undeploy JobGroup
+      operationId: undeploy-jobgroup
       parameters:
       - description: Authentication header
         in: header
@@ -418,6 +438,33 @@ paths:
             type: string
         "404":
           description: Can not find JobGroups
+          schema:
+            type: string
+  /jobmanager/jobs/lock/:
+    patch:
+      consumes:
+      - application/json
+      description: Get LockJobByUUID
+      operationId: get-lockjobbyuuid
+      parameters:
+      - description: Authentication header
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ok
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Can not find Job
           schema:
             type: string
   /jobmanager/policies/incompliance/create:

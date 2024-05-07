@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"etsn/server/jobmanager-service/responses"
+	"etsn/server/jobmanager-service/utils/logs"
 	"fmt"
 	"net/http"
 	"os"
@@ -100,7 +101,7 @@ func JWTValidation(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		claims := token.Claims.(jwt.MapClaims)
-		fmt.Println("Claims:", claims)
+		logs.Logger.Println("Claims:", claims)
 		next(w, r)
 	}
 }
@@ -122,5 +123,5 @@ func parseKeycloakRSAPublicKey(base64Encoded string) (*rsa.PublicKey, error) {
 }
 
 func logHttpCall(format string, args ...interface{}) {
-	fmt.Printf(time.Now().Format(time.RFC3339)+"  \x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+	logs.Logger.Printf(time.Now().Format(time.RFC3339)+"  \x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
 }

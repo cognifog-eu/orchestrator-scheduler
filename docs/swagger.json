@@ -20,14 +20,14 @@
     "paths": {
         "/jobmanager/jobs": {
             "get": {
-                "description": "Get JobGroup",
+                "description": "Undeploy JobGroup",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "operationId": "get-jobgroup",
+                "operationId": "undeploy-jobgroup",
                 "parameters": [
                     {
                         "type": "string",
@@ -228,6 +228,47 @@
                     },
                     "404": {
                         "description": "Can not find JobGroup to delete",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobmanager/jobs/lock/": {
+            "patch": {
+                "description": "Get LockJobByUUID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-lockjobbyuuid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Authentication header",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Can not find Job",
                         "schema": {
                             "type": "string"
                         }
@@ -564,7 +605,11 @@
                 },
                 "type": {
                     "description": "type of condition in CamelCase or in foo.example.com/CamelCase.\n---\nMany .condition.type values are consistent across resources like Available, but because arbitrary conditions can be\nuseful (see .node.status.conditions), the ability to deconflict is important.\nThe regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)\n+required",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ResourceState"
+                        }
+                    ]
                 }
             }
         },
@@ -603,6 +648,12 @@
                 },
                 "manifest": {
                     "type": "string"
+                },
+                "manifests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlainManifests"
+                    }
                 },
                 "namespace": {
                     "type": "string"
@@ -661,12 +712,10 @@
                 5,
                 6,
                 7,
-                8,
-                9
+                8
             ],
             "x-enum-varnames": [
                 "CreateDeployment",
-                "GetDeployment",
                 "DeleteDeployment",
                 "RecoveryJob",
                 "CreateNamespace"
@@ -684,6 +733,14 @@
                 "Nuvla",
                 "None"
             ]
+        },
+        "models.PlainManifests": {
+            "type": "object",
+            "properties": {
+                "yamlString": {
+                    "type": "string"
+                }
+            }
         },
         "models.Resource": {
             "type": "object",
@@ -708,6 +765,21 @@
                     "type": "string"
                 }
             }
+        },
+        "models.ResourceState": {
+            "type": "string",
+            "enum": [
+                "Progressing",
+                "Applied",
+                "Available",
+                "Degraded"
+            ],
+            "x-enum-varnames": [
+                "Progressing",
+                "Applied",
+                "Available",
+                "Degraded"
+            ]
         },
         "models.Target": {
             "type": "object",

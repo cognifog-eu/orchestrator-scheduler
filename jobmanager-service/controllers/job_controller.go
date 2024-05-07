@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -149,11 +148,6 @@ func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400				{object}	string		"Application name is required"
 //	@Router			/jobmanager/jobs/create/{app_name} [post]
 func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	appName := vars["app_name"]
-	appDesc := vars["job_group_description"]
-	logs.Logger.Println("Job group name is: " + appName)
-	logs.Logger.Println("Job group description is: " + appDesc)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
@@ -161,25 +155,14 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 	bodyString := string(bodyBytes)
 	bodyStringTrimmed := strings.Trim(bodyString, "\r\n")
 	logs.Logger.Println("Trimmed body: " + bodyStringTrimmed)
-	var mMResponseMapper models.MMResponseMapper
+	// var mMResponseMapper models.MMResponseMapper
 
 	splittedManifests := strings.Split(bodyStringTrimmed, "---")
 
-	// MM Mock from env
-
-	logs.Logger.Println("Mocking MM response: " + os.Getenv("MOCK_TARGET_CLUSTER"))
-	for i := 1; i < len(splittedManifests); i++ { //starts in 1 to drop first application description manifest
-		mMResponseMapper.Components = append(mMResponseMapper.Components, models.Component{
-			Name:      "name-" + strconv.FormatInt(int64(i), 10),
-			Kind:      "kind-" + strconv.FormatInt(int64(i), 10),
-			Manifests: "",
-			Targets: []models.Target{{
-				ClusterName:  os.Getenv("MOCK_TARGET_CLUSTER"),
-				NodeName:     os.Getenv("MOCK_TARGET_CLUSTER"),
-				Orchestrator: "ocm",
-			}},
-		})
-	}
+	// extract header block
+	headers := splittedManifests[0]
+	headerStruct := models.JobGroupHeader{}
+	yaml.Unmarshal([]byte(headers), &headerStruct)
 
 	/* // create MM request
 	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer(bodyBytes))
@@ -214,20 +197,76 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// debug
+		// mocking MM response for now
+		// start mock
+		mMResponseJson := `{
+			"components": [
+				{
+					"name": "consumer",
+					"type": "kubernetes",
+					"manifests": [
+						{
+							"name": "mjpeg"
+						},
+						{
+							"name": "mjpeg-service"
+						}
+					],
+					"targets": [
+						{
+							"cluster_name": "nuvlabox/55c7953e-2aa0-4d18-834c-b4d76d824bb9",
+							"node_name": "john-rasbpi-5-1",
+							"orchestrator": "nuvla"
+						}
+					]
+				},
+				{
+					"name": "producer",
+					"type": "kubernetes",
+					"manifests": [
+						"video-streaming-service",
+						"video-streaming-deployment"
+					],
+					"targets": [
+						{
+							"cluster_name": "icos-cluster-2a",
+							"node_name": "sim-k8s-master",
+							"orchestrator": "ocm"
+						}
+					]
+				}
+			]
+		}`
+
+		bodyMM = []byte(mMResponseJson)
+		// end mock
+
 		dst := &bytes.Buffer{}
 		_ = json.Indent(dst, bodyMM, "", "  ")
 		logs.Logger.Println("MM response is: " + dst.String())
-		// parse to application objects
-		err = json.Unmarshal(bodyMM, &mMResponseMapper)
+		err = json.Unmarshal(bodyMM, &headerStruct)
 		if err != nil {
 			logs.Logger.Println("ERROR " + err.Error())
 			responses.ERROR(w, http.StatusUnprocessableEntity, err)
 			return
 		}
-		fmt.Printf("Matchmaking response details: %#v", mMResponseMapper)
-
+		logs.Logger.Printf("Matchmaking response details: %#v", headerStruct)
 	*/
+
+	// MM Mock from env
+	mockTargetCluster := os.Getenv("MOCK_TARGET_CLUSTER")
+	logs.Logger.Println("Mocking MM response: " + mockTargetCluster)
+	if mockTargetCluster == "" {
+		logs.Logger.Println("Warning: MOCK_TARGET_CLUSTER environment variable is not set")
+	}
+	for i := range headerStruct.Components {
+		component := &headerStruct.Components[i]
+		component.Targets = append(component.Targets, models.Target{
+			ClusterName:  mockTargetCluster,
+			Orchestrator: "ocm",
+		})
+	}
+
 	// initialize conditions
 	conditions := []models.Condition{
 		{
@@ -239,21 +278,14 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 			Message:            "Waiting for the Target",
 		},
 		{
-			Type:               "Available",
+			Type:               "Created",
 			Status:             "True",
 			ObservedGeneration: 1,
 			LastTransitionTime: time.Now(),
-			Reason:             "Waiting for Job to be taken",
-			Message:            "Resource does not exist",
+			Reason:             "AwaitingForExecution",
+			Message:            "Waiting an Orchestrator to take the Job",
 		},
 	}
-
-	// extract header block
-	headers := splittedManifests[0]
-	headerStruct := models.JobGroupHeader{}
-	yaml.Unmarshal([]byte(headers), &headerStruct)
-	logs.Logger.Println("Application Headers: " + headers)
-	fmt.Printf("%#v", headerStruct)
 
 	// create Job Group
 	jobGroup := models.JobGroup{
@@ -261,18 +293,23 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		AppDescription: headerStruct.Description,
 	}
 
-	// // create unique namespace
-	// rs := utils.RandomString(10)
+	// if no namespace is provided, create a unique one, in the future will be always generated
+	if headerStruct.Namespace == "" {
+		uuidNamespace := uuid.New().String()
+		headerStruct.Namespace = uuidNamespace
+	}
 
-	// remove policies block before parsing
-	// mMResponseMapper.Components = mMResponseMapper.Components[:len(mMResponseMapper.Components)-1]
+	// temporal fix until the following issues are resolved:
+	// https://production.eng.it/gitlab/icos/meta-kernel/job-manager/-/issues/21
+	// https://production.eng.it/gitlab/icos/meta-kernel/job-manager/-/issues/22
+
 	// create job per component
-	for i, comp := range mMResponseMapper.Components {
+	for i, comp := range headerStruct.Components {
 		// declare job per received component
 		job := models.Job{
 			Type:         models.CreateDeployment,
 			State:        models.JobCreated,
-			Manifest:     splittedManifests[i+1], // TODO, this could fail so easily..
+			Manifest:     splittedManifests[i+1], // TODO, improve
 			Targets:      comp.Targets,
 			JobGroupName: jobGroup.AppName,
 			Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element
@@ -282,29 +319,27 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 				Conditions:   conditions,
 			},
 		}
+
+		// populate manifests slice for each job
+		// skipping the first element since its the header
+		for _, manifest := range splittedManifests[1:] {
+			for _, headerCompManifest := range comp.Manifests {
+				var k8sManifest *models.K8sMapper
+				err = yaml.Unmarshal([]byte(manifest), &k8sManifest)
+				if err != nil {
+					logs.Logger.Println("ERROR during job manifests population " + err.Error())
+				}
+				if headerCompManifest.Name == k8sManifest.Metadata.Name {
+					logs.Logger.Println("Manifest to be populated: " + headerCompManifest.Name)
+					job.Manifests = append(job.Manifests, models.PlainManifests{
+						YamlString: manifest,
+					})
+				}
+			}
+		}
+
 		jobGroup.Jobs = append(jobGroup.Jobs, job)
 		logs.Logger.Println("New Job appended to JobGroup: " + job.JobGroupID.String())
-
-		// since we are iterating targets, for each target a job to create the namespace must be created
-		// this job contains a namespace declaration, but in only applies if the target is a kubernetes cluster
-		// if comp.Targets[0].Orchestrator == "ocm" {
-		// 	nSJob := models.Job{
-		// 		Type:         models.CreateNamespace,
-		// 		State:        models.JobCreated,
-		// 		Manifest:     "", // namespace yaml declaration -> should be provided by DM
-		// 		Targets:      job.Targets,
-		// 		JobGroupName: jobGroup.AppName,
-		// 		Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element, proposal: remove array
-		// 		Namespace:    headerStruct.Namespace,       // Unique within a single cluster
-		// 		Resource: models.Resource{
-		// 			ResourceName: headerStruct.Namespace,
-		// 			Conditions:   conditions,
-		// 		},
-		// 	}
-		// 	jobGroup.Jobs = append(jobGroup.Jobs, nSJob)
-		// 	logs.Logger.Println("Namespace appended to JobGroup: " + nSJob.Namespace)
-		// }
-
 	}
 	// gorm save
 	_, err = jobGroup.SaveJobGroup(server.DB)
@@ -313,16 +348,14 @@ func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// notify policy manager
-	//models.NotifyPolicyManager(server.DB, bodyStringTrimmed, jobGroup, r.Header.Get("Authorization"))
-
-	logs.Logger.Println("APPDESC: " + jobGroup.AppDescription)
-	responses.JSON(w, http.StatusCreated, jobGroup) // TODO change
+	models.NotifyPolicyManager(server.DB, bodyStringTrimmed, jobGroup, r.Header.Get("Authorization"))
+	responses.JSON(w, http.StatusCreated, jobGroup)
 	/*
-		 	} else {
-				err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
-				responses.ERROR(w, http.StatusInternalServerError, err)
-				return
-			}
+		} else {
+			err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
+			responses.ERROR(w, http.StatusInternalServerError, err)
+			return
+		}
 	*/
 }
 
@@ -343,7 +376,7 @@ func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	stringID := vars["id"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
-		fmt.Println("JOB's ID is empty!")
+		logs.Logger.Println("JOB's ID is empty!")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
@@ -354,9 +387,14 @@ func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	}
 	// gorm retrieve
 	job := models.Job{}
-	jobDeleted, err := job.DeleteAJob(server.DB, uuid)
+	jobGotten, err := job.FindJobByUUID(server.DB, uuid)
 	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
+		responses.ERROR(w, http.StatusNotFound, err)
+		return
+	}
+	jobDeleted, err := jobGotten.DeleteAJob(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
@@ -377,19 +415,6 @@ func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404				{object}	string		"Can not find Job to update"
 //	@Router			/jobmanager/jobs/{id} [put]
 func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stringID := vars["id"]
-	if stringID == "" {
-		err := errors.New("ID Cannot be empty")
-		fmt.Println("JOB's ID is empty!")
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	id, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
 	resource := models.Resource{}
 	job := models.Job{}
 	bodyJob, err := io.ReadAll(r.Body)
@@ -411,13 +436,80 @@ func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
 		// responses.ERROR(w, http.StatusBadRequest, err)
 		// return
 	}
-	jobUpdated, err := job.UpdateAJob(server.DB, id)
+	jobUpdated, err := job.UpdateAJob(server.DB)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
 
 	responses.JSON(w, http.StatusOK, jobUpdated)
+}
+
+// LockJobByUUID example
+//
+//	@Description	Get LockJobByUUID
+//	@ID				get-lockjobbyuuid
+//	@Accept			json
+//	@Produce		json
+//	@Param			Authorization	header		string				true	"Authentication header"
+//	@Success		200				{string}	string	"Ok"
+//	@Failure		404				{object}	string				"Can not find Job"
+//	@Failure		403				{object}	string				"Forbidden"
+//	@Router			/jobmanager/jobs/lock/ [Patch]
+func (server *Server) LockJobByUUID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+	uuid, err := uuid.Parse(stringID)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// gorm retrieve
+	job := models.Job{}
+	jobGotten, err := job.FindJobByUUID(server.DB, uuid)
+	if err != nil {
+		responses.ERROR(w, http.StatusNotFound, err)
+		return
+	}
+
+	b := new(bool)
+	*b = true
+	// job already locked.
+	if jobGotten.Locker == b {
+		// job has been locked for less than timeout. cannot be locked again
+		timeOutThreshold := time.Now().Local().Add(time.Second * time.Duration(-300))
+		if jobGotten.UpdatedAt.After(timeOutThreshold) {
+			responses.ERROR(w, http.StatusForbidden, err)
+			return
+		}
+	}
+	// job already finished, cannot be locked
+	if jobGotten.State == models.JobFinished {
+		responses.ERROR(w, http.StatusForbidden, err)
+		return
+	}
+
+	// TODO: only the owner and JobManager itself can lock/unlock jobs
+
+	// if got to this step, job was not locked(executable) as expected
+	// if the job was not locked it was at state=JobCreated or state=JobDegraded
+	// locking the job, promotion to owner happens here
+	jobGotten.Locker = b
+	//gorm update
+	_, err = jobGotten.JobLocker(server.DB)
+	if err != nil {
+		responses.ERROR(w, http.StatusNotFound, err)
+		return
+	}
+
+	// job locked and can be now executed
+	responses.JSON(w, http.StatusNoContent, http.NoBody)
 }
 
 // GetJobGroup example
@@ -443,7 +535,7 @@ func (server *Server) GetJobGroupByUUID(w http.ResponseWriter, r *http.Request) 
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	fmt.Println("Parsed JobGroup ID to lookup: " + uuid.String())
+	logs.Logger.Println("Parsed JobGroup ID to lookup: " + uuid.String())
 	// gorm retrieve
 	jobGroup := models.JobGroup{}
 	jobGroupGotten, err := jobGroup.FindJobGroupByUUID(server.DB, uuid)
@@ -472,7 +564,7 @@ func (server *Server) DeleteJobGroup(w http.ResponseWriter, r *http.Request) {
 	stringID := vars["id"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
-		fmt.Println("JobGroup's ID is empty!")
+		logs.Logger.Println("JobGroup's ID is empty!")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
@@ -512,4 +604,77 @@ func (server *Server) GetAllJobGroups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusOK, jobGroupsGotten)
+}
+
+// UndeployJobGroupByUUID example
+//
+//	@Description	Undeploy JobGroup
+//	@ID				undeploy-jobgroup
+//	@Accept			json
+//	@Produce		json
+//	@Param			Authorization	header		string				true	"Authentication header"
+//	@Success		200				{string}	[]models.JobGroup	"Ok"
+//	@Failure		404				{object}	string				"Can not find JobGroup"
+//	@Router			/jobmanager/jobs [get]
+func (server *Server) UndeployJobGroupByUUID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	stringID := vars["id"]
+	if stringID == "" {
+		err := errors.New("ID Cannot be empty")
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+	uuid, err := uuid.Parse(stringID)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+	fmt.Println("Parsed JobGroup ID to lookup: " + uuid.String())
+	// gorm retrieve
+	jobGroup := models.JobGroup{}
+	jobGroupGotten, err := jobGroup.FindJobGroupByUUID(server.DB, uuid)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+	// logic
+	// check jobs are actually deployed, if resources not found: TODO
+	for i := len(jobGroupGotten.Jobs) - 1; i >= 0; i-- {
+		job := jobGroupGotten.Jobs[i]
+		// job must  be already deployed or progressing to do so
+		if job.State != models.JobCreated {
+			// resource exists
+			if job.Resource.ID.String() != "00000000-0000-0000-0000-000000000000" {
+				// schedule the jobs for execution
+				job.State = models.JobCreated
+				job.Type = models.DeleteDeployment
+				// check jobs are locked, they should be, now I must unlock them for undeployment
+				if *job.Locker {
+					// unlock the job
+					*job.Locker = false
+				} else {
+					responses.ERROR(w, http.StatusBadRequest, err)
+					return
+				}
+				// no need to schedule, just delete the job
+			} else {
+				_, err := job.DeleteAJob(server.DB)
+				if err != nil {
+					responses.ERROR(w, http.StatusNotFound, err)
+					return
+				}
+				// Remove element at index i without affecting the loop
+				jobGroupGotten.Jobs = append(jobGroupGotten.Jobs[:i], jobGroupGotten.Jobs[i+1:]...)
+			}
+
+		}
+	}
+	// gorm update
+	_, err = jobGroupGotten.UpdateJobGroupState(server.DB, uuid)
+	if err != nil {
+		responses.ERROR(w, http.StatusBadRequest, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, jobGroupGotten)
 }
