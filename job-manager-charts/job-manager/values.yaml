@@ -5,13 +5,13 @@
 replicaCount: 1
 
 image:
-  repository: registry.atosresearch.eu:18509/orch-scheduler-jobmanager
+  repository: harbor.cognifog.rid-intrasoft.eu/orchestrator-scheduler/orch-scheduler-jobmanager 
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "main"
+  tag: "dev"
 
 imagePullSecrets: 
-  - name: nexusetsnsecret
+  - name: cognifog-harbor-secret
 nameOverride: "jobmanager"
 fullnameOverride: "jobmanager"
 

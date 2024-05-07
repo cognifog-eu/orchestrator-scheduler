@@ -3,7 +3,7 @@ services:
   jobmanager-service:
     container_name: jobmanager
     build: .
-    image: registry.atosresearch.eu:18509/orch-scheduler-jobmanager
+    image: harbor.cognifog.rid-intrasoft.eu/orchestrator-scheduler/orch-scheduler-jobmanager:dev 
     ports: 
       - ${SERVER_PORT}:${SERVER_PORT}
     environment: 
