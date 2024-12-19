@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,54 +16,39 @@ limitations under the License.
 package controllers
 
 import (
-	"encoding/json"
-	"etsn/server/jobmanager-service/models"
 	"etsn/server/jobmanager-service/responses"
 	"etsn/server/jobmanager-service/utils/logs"
 	"io"
 	"net/http"
 )
 
-// CreatePolicyIncompliance example
+// CreatePolicyIncompliance godoc
 //
-//	@Description	create new Incompliance
-//	@ID				create-new-incompliance
-//	@Accept			plain
+//	@Summary		Triger a new remediation
+//	@Description	Triger a new remediation.
+//	@Tags			policies
+//	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string		true	"Authentication header"
-//	@Param			application		body		string		true	"Incompliance Object"
-//	@Success		200				{object}	models.Job	"Ok"
-//	@Failure		400				{object}	string		"Incompliance Object is not correct"
-//	@Router			/jobmanager/policies/incompliance/create [post]
+//	@Param			application	body		string	true	"Remediation Object"
+//	@Success		200			{object}	models.Remediation
+//	@Failure		400			{object}	string	"Remediation Object is not correct"
+//	@Failure		422			{object}	string	"Unprocessable Entity"
+//	@Router			/jobmanager/policies/incompliance [post]
 func (server *Server) CreatePolicyIncompliance(w http.ResponseWriter, r *http.Request) {
-	// vars := mux.Vars(r)
-	// stringID := vars["id"]
-	// if stringID == "" {
-	// 	err := errors.New("ID Cannot be empty")
-	// 	responses.ERROR(w, http.StatusBadRequest, err)
-	// 	return
-	// }
-	// uuid, err := uuid.Parse(stringID)
-	incompliance := models.Incompliance{}
 	incomplianceBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	// parse to incompliance objects
-	err = json.Unmarshal(incomplianceBody, &incompliance)
+
+	// Handle the incompliance through the service
+	incompliance, err := server.PolicyService.HandlePolicyIncompliance(incomplianceBody, r.Header)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	// gorm save
-	_, err = incompliance.SaveIncompliance(server.DB)
-	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
+
 	responses.JSON(w, http.StatusOK, incompliance)
 }

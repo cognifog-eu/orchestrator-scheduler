@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -68,13 +68,6 @@ func JWTValidation(next http.HandlerFunc) http.HandlerFunc {
 		reqToken := splitToken[1]
 		reqToken = strings.TrimSpace(reqToken)
 
-		// example token to validate
-		// tokenString := "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ6MXdOWU9YVFRpd2RhQjJyS1NqNElrUG1YTDJHbXVTOVFRNERJeXpWbWlrIn0.eyJleHAiOjE2ODIxMTQ3MjgsImlhdCI6MTY4MjExNDQyOCwianRpIjoiZDE5NGZlMmEtZDUyOC00YjhhLWI3OWItODEwNDMxNWExNzIxIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9BcnFncmlmbyIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJmOWExMTYxYi00YzhiLTRmM2MtODViYy0xYmM1MDE0MWFmNTYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJ3ZWItYXBwIiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyIvKiJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGVmYXVsdC1yb2xlcy1hcnFncmlmbyIsIm9mZmxpbmVfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6eyJ3ZWItYXBwIjp7InJvbGVzIjpbInVtYV9wcm90ZWN0aW9uIl19LCJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6InByb2ZpbGUgZW1haWwiLCJjbGllbnRJZCI6IndlYi1hcHAiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImNsaWVudEhvc3QiOiIxNzIuMTcuMC4xIiwicHJlZmVycmVkX3VzZXJuYW1lIjoic2VydmljZS1hY2NvdW50LXdlYi1hcHAiLCJjbGllbnRBZGRyZXNzIjoiMTcyLjE3LjAuMSJ9.vqFWx5mMESEMww8E5t1J8ZmoCw1R9qv1qlgaYaG7FQcd8B_sN223cDYMoqJF5y-Xv9zaJ094fUmyDtJHv-ZTkxw3R9AtjG0cCjqMxgBn1X2irlNYEmR5ZX73YXDUxY6XuABLyTGdh00bEcaUIyFR1Pver2UDjMf2okcV1FgEd0Z_94j4pjqtcY0nbsWIKnLoVoor7QV6ytWRpMG25DvrSVxciaOpogOHlUhaWtTfMz-mvfFg64i_S6rIuT84APnVe6weAuj92YS6bUzBif_gcgNeMdLrJChxWdPMK9G5mDAgLOqUv-X5fPOw1arigInV0nCJmKV7LG6Yc1UlDHdmiA"
-
-		// The base64-encoded public key downloaded from Keycloak.
-		// The screenshot in the question shows the correct place to get it.
-		// It's much longer than "P184S3h7Ugjl56l31qeJ4FKvmBB4iikc".
-		// base64EncodedPublicKey := `replaced with the public key downloaded from Keycloak`
 		publicKey, err := parseKeycloakRSAPublicKey(base64EncodedPublicKey)
 		if err != nil {
 			responses.ERROR(w, http.StatusInternalServerError, err)

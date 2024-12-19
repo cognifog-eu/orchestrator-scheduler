@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,14 +18,17 @@ package controllers
 import (
 	"context"
 	"etsn/server/jobmanager-service/models"
+	"etsn/server/jobmanager-service/service"
 	"etsn/server/jobmanager-service/utils/logs"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
+	"etsn/server/jobmanager-service/repository"
 	"log"
 
 	go_driver "github.com/go-sql-driver/mysql"
@@ -38,13 +41,14 @@ import (
 )
 
 type Server struct {
-	DB     *gorm.DB
-	Router *mux.Router
-}
-
-func (server *Server) Init() {
-	server.Router = mux.NewRouter()
-	server.initializeRoutes()
+	DB               *gorm.DB
+	Router           *mux.Router
+	JobService       service.JobService
+	JobGroupService  service.JobGroupService
+	PolicyService    service.PolicyService
+	ResourceService  service.ResourceService
+	AllocatorService service.AllocatorService
+	ManifestService  service.ManifestService
 }
 
 func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, dbName string) {
@@ -85,9 +89,39 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		server.DB.Exec("USE " + dbName)
 	}
 
-	server.DB.Debug().AutoMigrate(&models.JobGroup{}, &models.Job{}, &models.PlainManifests{}, &models.Target{}, &models.Resource{}, &models.Condition{}, &models.Incompliance{}, &models.Subject{}) // , &models.Status{},) //database migration
+	server.DB.Debug().
+		AutoMigrate(
+			&models.JobGroup{},
+			&models.Job{},
+			&models.Instruction{},
+			&models.Content{},
+			&models.Policy{},
+			&models.Requirement{},
+			//	&models.ManifestRef{},
+			&models.Target{},
+			&models.Resource{},
+			&models.Condition{},
+			&models.Remediation{},
+			&models.RemediationTarget{},
+		)
 
 	server.Router = mux.NewRouter()
+
+	// Initialize repositories
+	jobRepo := repository.NewJobRepository(server.DB)
+	jobGroupRepo := repository.NewJobGroupRepository(server.DB)
+	policyRepo := repository.NewPolicyRepository(server.DB)
+	resourceRepo := repository.NewResourceRepository(server.DB)
+	httpClient := &http.Client{}
+
+	// Initialize services
+	server.AllocatorService = service.NewAllocatorService()
+	server.ManifestService = service.NewManifestService()
+	server.ResourceService = service.NewResourceService(resourceRepo, jobRepo)
+	server.JobGroupService = service.NewJobGroupService(jobGroupRepo, server.AllocatorService, server.ManifestService)
+	server.JobService = service.NewJobService(jobRepo, server.ResourceService, server.AllocatorService, server.JobGroupService)
+	// TODO: we should reference a single httpclient for all services
+	server.PolicyService = service.NewPolicyService(policyRepo, server.JobService, httpClient)
 
 	// swagger
 	server.Router.PathPrefix("/jobmanager/swagger/").Handler(httpSwagger.Handler(
@@ -97,31 +131,54 @@ func (server *Server) Initialize(dbdriver, dbUser, dbPassword, dbPort, dbHost, d
 		httpSwagger.DomID("swagger-ui"),
 	)).Methods(http.MethodGet)
 
-	server.initializeRoutes()
+	// enable JWT middleware
+	enableJWT := os.Getenv("ENVIRONMENT") != "development"
+
+	server.initializeRoutes(enableJWT)
 }
 
 func (server *Server) Run(addr string) {
-	logs.Logger.Println("Listening to port " + addr + " ...")
+	logs.Logger.Println("Listening on port " + addr + " ...")
 	handler := cors.AllowAll().Handler(server.Router)
 
-	stop := make(chan os.Signal)
-	signal.Notify(stop, os.Interrupt)
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: handler,
+
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	stop := make(chan os.Signal, 1)
+
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	defer signal.Stop(stop)
 
 	go func() {
-		// init server
-		if err := http.ListenAndServe(addr, handler); err != nil {
-			if err != http.ErrServerClosed {
-				logs.Logger.Fatal(err)
-			}
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logs.Logger.Fatalf("Could not listen on %s: %v\n", addr, err)
 		}
 	}()
 
+	logs.Logger.Println("Server is ready to handle requests")
+
 	<-stop
 
-	// after stopping server
-	logs.Logger.Println("Closing connections ...")
+	logs.Logger.Println("Shutdown signal received")
+	logs.Logger.Println("Shutting down server gracefully...")
 
-	var shutdownTimeout = flag.Duration("shutdown-timeout", 10*time.Second, "shutdown timeout (5s,5m,5h) before connections are cancelled")
-	_, cancel := context.WithTimeout(context.Background(), *shutdownTimeout)
+	shutdownTimeout := flag.Duration("shutdown-timeout", 10*time.Second, "shutdown timeout (5s,5m,5h) before connections are cancelled")
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), *shutdownTimeout)
 	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		logs.Logger.Fatalf("Server Shutdown Failed:%+v", err)
+	}
+
+	logs.Logger.Println("Server gracefully stopped")
 }
