@@ -5,11 +5,17 @@ include .env
 build-container:	# Build application into container
 	docker build --pull --rm -f "Dockerfile" -t registry.atosresearch.eu:18509/orch-scheduler-jobmanager "."
 
-start-database:	# Start application from container with embeded database
+start: # Start application from container with embeded database
 	docker-compose up -d
 
-stop-database:	# Stop application from container with embeded database
+stop: # Stop application from container with embeded database
 	docker-compose down
+
+start-database: # Start only database
+	docker-compose -f docker-compose-database.yml up -d
+
+stop-database: # Stop only database
+	docker-compose -f docker-compose-database.yml down
 
 ## Local application
 

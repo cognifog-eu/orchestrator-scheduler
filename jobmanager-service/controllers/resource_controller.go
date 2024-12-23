@@ -1,11 +1,11 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,18 +24,13 @@ import (
 	"io"
 	"net/http"
 
-	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-// var (
-// 	deployManagerBaseURL = os.Getenv("DEPLOY_MANAGER_BASE_URL")
-// )
-
+// Deprecated - Add in future releases
 func (server *Server) GetAllResources(w http.ResponseWriter, r *http.Request) {
 	// gorm retrieve
-	job := models.Job{}
-	jobsGotten, err := job.FindAllJobs(server.DB)
+	jobsGotten, err := server.JobService.FindAllJobs()
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -46,92 +41,31 @@ func (server *Server) GetAllResources(w http.ResponseWriter, r *http.Request) {
 
 // GetResourceStateByJobUUID example
 //
+//	@Summary		Get resource status by job UUID
 //	@Description	get resource status by job uuid
-//	@ID				get-resource-status-by-job-uuid
+//	@Tags			resources
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string			true	"Authentication header"
-//	@Param			job_id			path		string			true	"Job ID"
-//	@Success		200				{object}	models.Resource	"Ok"
-//	@Failure		400				{object}	string			"Job ID is required"
-//	@Failure		404				{object}	string			"Can not find Job by ID"
-//	@Router			/jobmanager/resources/status/{job_id} [get]
+//	@Param			job_uuid	path		string	true	"Job UUID"
+//	@Success		200			{object}	models.Resource
+//	@Failure		400			{object}	string	"Job UUID is required"
+//	@Failure		404			{object}	string	"Can not find Job by UUID"
+//	@Router			/jobmanager/resources/status/{job_uuid} [get]
 func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringID := vars["job_id"]
+	stringID := vars["job_uuid"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
 
-	// retrieve info from the job first. need extra info!
-	resource := models.Resource{}
-	resourceGotten, err := resource.FindResourceByUUID(server.DB, uuid)
+	resourceGotten, err := server.ResourceService.FindResourceByJobUUID(stringID)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
 		responses.ERROR(w, http.StatusNotFound, err)
 		return
 	}
-
-	// ONLY VALID IN PUSH MODE
-	// resourceStatus := models.Resource{}
-	// jobString, err := json.Marshal(jobGotten)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-	// logs.Logger.Println("Job found: " + string(jobString))
-	// this can have some sort of cache to avoid making requests to DM
-
-	// // create DM request
-	// req, err := http.NewRequest("GET", deployManagerBaseURL+"/deploy-manager/resource", bytes.NewBuffer([]byte{}))
-	// query := req.URL.Query()
-	// query.Add("uuid", uuid.String())
-	// query.Add("node_target", jobGotten.Targets[0].NodeName)
-	// query.Add("resource_name", jobGotten.Resource.ResourceName)
-	// query.Encode()
-	// logs.Logger.Println("request status to DM: " + req.URL.String())
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-
-	// // forward the authorization token
-	// req.Header.Add("Authorization", r.Header.Get("Authorization"))
-
-	// // // do request
-	// client := &http.Client{}
-	// resp, err := client.Do(req)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-	// defer resp.Body.Close()
-
-	// direct body read
-	// resourceStatusBody, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
-
-	// // parse to application objects
-	// err = json.Unmarshal(resourceStatusBody, &resourceStatus)
-	// if err != nil {
-	// 	logs.Logger.Println("ERROR " + err.Error())
-	// 	responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	// 	return
-	// }
 
 	responses.JSON(w, http.StatusOK, resourceGotten.Conditions)
 
@@ -139,27 +73,18 @@ func (server *Server) GetResourceStateByJobUUID(w http.ResponseWriter, r *http.R
 
 // UpdateResourceStateByUUID example
 //
-//	@Description	update a resource status by uuid
-//	@ID				update-a-resource-status-by-uuid
+//	@Summary		Update resource status by UUID
+//	@Description	update resource status by uuid
+//	@Tags			resources
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string			true	"Authentication header"
-//	@Param			id				path		string			true	"Resource UUID"
-//	@Param			resource		body		models.Resource	true	"Resource info"
-//	@Success		200				{object}	string			"Ok"
-//	@Failure		400				{object}	string			"ID is required"
-//	@Failure		404				{object}	string			"Can not find Resource to update"
-//	@Router			/jobmanager/resources/status/{id} [put]
+//	@Param			id			path		string			true	"Resource UUID"
+//	@Param			resource	body		models.Resource	true	"Resource info"
+//	@Success		200			{object}	string			"Resource updated"
+//	@Failure		400			{object}	string			"Resource UUID is required"
+//	@Failure		404			{object}	string			"Can not find Resource to update"
+//	@Router			/jobmanager/resources/status [put]
 func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.Request) {
-	// vars := mux.Vars(r)
-	// stringID := vars["id"]
-	// if stringID == "" {
-	// 	err := errors.New("ID Cannot be empty")
-	// 	responses.ERROR(w, http.StatusBadRequest, err)
-	// 	return
-	// }
-	// uuid, err := uuid.Parse(stringID)
-	resource := models.Resource{}
 	resourceBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
@@ -167,58 +92,22 @@ func (server *Server) UpdateResourceStateByUUID(w http.ResponseWriter, r *http.R
 		return
 	}
 	logs.Logger.Println("Resource contents: " + string(resourceBody))
-	// parse to application objects
-	err = json.Unmarshal(resourceBody, &resource)
+
+	updatedResource, err := server.ResourceService.UpdateResourceState(resourceBody)
 	if err != nil {
 		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	// get resource from db, retrieve the job first
-	job := models.Job{}
-	jobGotten, err := job.FindJobByResourceUUID(server.DB, resource.ResourceUUID)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusNotFound, err)
-		return
-	}
-
-	// debug
-	j, err := json.Marshal(jobGotten)
-	if err != nil {
-		logs.Logger.Println("ERROR during debug" + err.Error())
-	}
-	logs.Logger.Println("Job contents: " + string(j))
-	// update resource details
-	// swap the ids.. TODO improve
-	resource.ResourceUUID = jobGotten.UUID
-	resource.ID = jobGotten.Resource.ID
-	resource.JobID = jobGotten.ID
-	logs.Logger.Println("Updating Resource Status, Resource ID: " + resource.ID.String())
-	// updatedResource, err := resource.UpdateAResource(server.DB, job.ID, resource.ResourceUUID)
-	resource.RemoveConditions(server.DB)
-	for _, condition := range resource.Conditions {
-		condition.ResourceID = resource.ID
-		_, err = resource.AddCondition(server.DB, &condition)
-		if err != nil {
-			logs.Logger.Println("Resource were not found during status update")
+		if err.Error() == "not found" {
+			responses.ERROR(w, http.StatusNotFound, err)
+		} else {
 			responses.ERROR(w, http.StatusBadRequest, err)
-			return
 		}
+		return
 	}
-	responses.JSON(w, http.StatusOK, resource)
+
+	responses.JSON(w, http.StatusOK, updatedResource)
 }
 
 func (server *Server) CreateResource(w http.ResponseWriter, r *http.Request) {
-	// vars := mux.Vars(r)
-	// stringID := vars["id"]
-	// if stringID == "" {
-	// 	err := errors.New("ID Cannot be empty")
-	// 	responses.ERROR(w, http.StatusBadRequest, err)
-	// 	return
-	// }
-	// uuid, err := uuid.Parse(stringID)
 	resource := models.Resource{}
 	resourceBody, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -235,23 +124,11 @@ func (server *Server) CreateResource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// gorm save
-	_, err = resource.SaveResource(server.DB)
+	_, err = server.ResourceService.SaveResource(&resource)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
 
-	// update resource details first
-	// logs.Logger.Println("Updating Resource Status: " + uuid.String())
-	// resource.RemoveConditions(server.DB)
-	// for _, condition := range resource.Conditions {
-	// 	condition.ResourceID = resource.ID
-	// 	_, err = resource.AddCondition(server.DB, &condition)
-	// 	if err != nil {
-	// 		logs.Logger.Println("Resource were not found during status update")
-	// 		responses.ERROR(w, http.StatusBadRequest, err)
-	// 		return
-	// 	}
-	// }
 	responses.JSON(w, http.StatusOK, resource)
 }

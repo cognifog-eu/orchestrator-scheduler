@@ -1,5 +1,5 @@
 /*
-Copyright 2023-2024 Bull SAS Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,21 +13,19 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package repository
 
-package utils
+import (
+	"etsn/server/jobmanager-service/models"
 
-// func RandomString(n int) string {
+	"github.com/stretchr/testify/mock"
+)
 
-// 	var alphabet []rune = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890")
+type MockPolicyRepository struct {
+	mock.Mock
+}
 
-// 	alphabetSize := len(alphabet)
-// 	var sb strings.Builder
-
-// 	for i := 0; i < n; i++ {
-// 		ch := alphabet[rand.Intn(alphabetSize)]
-// 		sb.WriteRune(ch)
-// 	}
-
-// 	s := sb.String()
-// 	return s
-// }
+func (m *MockPolicyRepository) SaveRemediation(incompliance *models.Remediation) (*models.Remediation, error) {
+	args := m.Called(incompliance)
+	return args.Get(0).(*models.Remediation), args.Error(1)
+}

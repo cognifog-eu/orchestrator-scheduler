@@ -22,7 +22,6 @@ An example of the data model recieved by the component may be found at the [Dash
 | DB_HOST          | Example: localhost       |
 | DB_PORT          | Example: 3306            |
 | SERVER_PORT      | Example: 8082            |
-| MOCK_TARGET_CLUSTER | Temporary until there is a working matchmaking service |
 
 
 ## Run containerized with embeded database

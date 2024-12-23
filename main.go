@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 )
 
 //	@title			Swagger Job Manager API
-//	@version		1.0
+//	@version		1.4.1-latest
 //	@description	Job Manager Microservice.
 //	@termsOfService	http://swagger.io/terms/
 
@@ -35,11 +35,22 @@ import (
 //	@host		localhost:8082
 //	@BasePath	/
 
-//	@securityDefinitions.basic	OAuth 2.0
+//	@securityDefinitions.apikey	Bearer
+//	@in							header
+//	@name						Authorization
+//	@description				"Type 'Bearer TOKEN' to correctly set the API Key"
 
 // @externalDocs.description	OpenAPI
 // @externalDocs.url			https://swagger.io/resources/open-api/
 func main() {
+
+	// // programmatically set swagger info
+	// docs.SwaggerInfo.Title = "Swagger Example API"
+	// docs.SwaggerInfo.Description = "This is a sample server Petstore server."
+	// docs.SwaggerInfo.Version = "1.0"
+	// docs.SwaggerInfo.Host = "petstore.swagger.io"
+	// docs.SwaggerInfo.BasePath = "/v2"
+	// docs.SwaggerInfo.Schemes = []string{"http", "https"}
 
 	jobmanager_service.Run()
 

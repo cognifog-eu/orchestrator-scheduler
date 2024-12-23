@@ -1,0 +1,54 @@
+/*
+Copyright 2023-2024 Bull SAS
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package models
+
+type InstructionBase struct {
+	ComponentName string      `gorm:"type:text" json:"componentName" yaml:"name"`
+	Type          string      `gorm:"type:text" json:"type" yaml:"type"`
+	Requirement   Requirement `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"requirements,omitempty"`
+	Policies      []Policy    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"policies,omitempty"`
+}
+
+type Instruction struct {
+	BaseUUID
+	InstructionBase
+	JobID    string    `gorm:"type:char(36);not null" json:"job_id" yaml:"-"` // Excluded from YAML
+	Contents []Content `gorm:"constraint:OnDelete:CASCADE;" json:"contents"`
+	//Manifests ManifestMap `gorm:"type:json" json:"manifests" yaml:"manifests"`
+}
+
+type Requirement struct {
+	BaseUINT
+	InstructionID string `gorm:"type:char(36);not null" json:"-" validate:"omitempty,uuid4"`
+	Device        string `gorm:"-" json:"devices,omitempty" yaml:"devices"`
+	CPU           string `gorm:"-" json:"cpu,omitempty" yaml:"cpu"`
+	Memory        string `gorm:"-" json:"memory,omitempty" yaml:"memory"`
+	Architecture  string `gorm:"-" json:"architecture,omitempty" yaml:"architecture"`
+}
+
+// PlainManifest entity
+type Content struct {
+	BaseUINT
+	Name          string `gorm:"type:text" json:"name" validate:"required"`
+	InstructionID string `gorm:"type:char(36);not null" json:"-" validate:"omitempty,uuid4"`
+	Yaml          string `gorm:"type:text" json:"yaml" validate:"required"`
+}
+
+// GORM Hooks
+
+func (c *Instruction) Validate() error {
+	return validate.Struct(c)
+}

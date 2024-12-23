@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,76 +21,54 @@ import (
 	"etsn/server/jobmanager-service/models"
 	"etsn/server/jobmanager-service/responses"
 	"etsn/server/jobmanager-service/utils/logs"
-	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
-	"time"
 
-	uuid "github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"gopkg.in/yaml.v2"
+	"gorm.io/gorm"
 )
 
-var (
-	// lighthouseBaseURL  = os.Getenv("LIGHTHOUSE_BASE_URL")
-	// apiV3              = "/api/v3"
-	matchmackerBaseURL = os.Getenv("MATCHMAKING_URL")
-)
-
-// GetAllJobs example
+// GetAllJobs godoc
 //
-//	@Description	Get All Jobs
-//	@ID				get-all-jobs
+//	@Summary		List all Jobs
+//	@Description	get all jobs
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string			true	"Authentication header"
-//	@Success		200				{string}	[]models.Job	"Ok"
-//	@Failure		404				{object}	string			"Can not find Jobs"
+//	@Success		200	{array}		[]models.Job
+//	@Failure		404	{object}	string	"Can not find Jobs"
 //	@Router			/jobmanager/jobs [get]
 func (server *Server) GetAllJobs(w http.ResponseWriter, r *http.Request) {
-	// gorm retrieve
-	job := models.Job{}
-	jobsGotten, err := job.FindAllJobs(server.DB)
+	jobsGotten, err := server.JobService.FindAllJobs()
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-
 	responses.JSON(w, http.StatusOK, jobsGotten)
 }
 
-// GetJobByUUID example
+// GetJobByUUID godoc
 //
-//	@Description	get Job by UUID
-//	@ID				get-job-by-uuid
+//	@Summary		Get Job by UUID
+//	@Description	get job by uuid
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string		true	"Authentication header"
-//	@Param			id				path		string		true	"Job ID"
-//	@Success		200				{string}	models.Job	"Ok"
-//	@Failure		400				{object}	string		"Job ID is required"
-//	@Failure		404				{object}	string		"Can not find Job by ID"
-//	@Router			/jobmanager/jobs/{id} [get]
+//	@Param			job_uuid	path		string		true	"Job UUID"
+//	@Success		200			{object}	models.Job	"Ok"
+//	@Failure		400			{object}	string		"Job UUID is required"
+//	@Failure		404			{object}	string		"Can not find Job by UUID"
+//	@Router			/jobmanager/jobs/{job_uuid} [get]
 func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringID := vars["id"]
+	stringID := vars["job_uuid"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
 
-	// gorm retrieve
-	job := models.Job{}
-	jobGotten, err := job.FindJobByUUID(server.DB, uuid)
+	jobGotten, err := server.JobService.FindJobByUUID(stringID)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
@@ -100,416 +78,146 @@ func (server *Server) GetJobByUUID(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// GetJobsByState example
+// GetJobsByState godoc
 //
-//	@Description	get Jobs by State
-//	@ID				get-jobs-by-state
+//	@Summary		List Jobs to Execute
+//	@Description	get jobs to execute
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string			true	"Authentication header"
-//	@Param			orchestrator	header		string			true	"Orchestrator type [ ocm | nuvla ]"
-//	@Success		200				{string}	[]models.Job	"Ok"
-//	@Failure		400				{object}	string			"Orchestrator type is required"
-//	@Failure		404				{object}	string			"Can not find executable Jobs"
-//	@Router			/jobmanager/jobs/executable [get]
-//
-// retrieves only executable jobs for now; TODO: improve
+//	@Param			orchestrator	path		string	true	"Orchestrator type [ocm | nuvla]"
+//	@Param			owner_id		path		string	true	"Owner ID"
+//	@Success		200				{array}		[]models.Job
+//	@Failure		400				{object}	string	"Orchestrator type is required"
+//	@Failure		404				{object}	string	"Cannot find executable Jobs"
+//	@Failure		500				{object}	string	"Internal server error"
+//	@Router			/jobmanager/jobs/executable/{orchestrator}/{owner_id} [get]
 func (server *Server) GetJobsByState(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orch := vars["orchestrator"]
+	ownerID := vars["owner_id"] // temporal solution to test
 	// state validation
 	if models.None == models.OrchestratorTypeMapper(orch) {
-		err := errors.New("no valid Orchestrator type provided")
+		err := errors.New("no valid orchestrator type provided")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
 
-	// gorm retrieve
-	job := models.Job{}
-	// retrieves jobs that are created && not locked or progressing && locked for more than 5 minutes
-	jobGotten, err := job.FindJobsToExecute(server.DB, orch)
+	// Fetch jobs to execute
+	jobGotten, err := server.JobService.FindJobsToExecute(orch, ownerID)
 	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
+		// Specific error handling for different scenarios
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			responses.ERROR(w, http.StatusNotFound, err)
+		} else {
+			responses.ERROR(w, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
+	// Respond with the jobs found
 	responses.JSON(w, http.StatusOK, jobGotten)
 }
 
-// CreateJob example
+// DeleteJob godoc
 //
-//	@Description	create new Job
-//	@ID				create-new-job
-//	@Accept			plain
-//	@Produce		json
-//	@Param			Authorization	header		string		true	"Authentication header"
-//	@Param			app_name		path		string		true	"Application name"
-//	@Param			application		body		string		true	"Application manifest YAML"
-//	@Success		200				{object}	models.Job	"Ok"
-//	@Failure		400				{object}	string		"Application name is required"
-//	@Router			/jobmanager/jobs/create/{app_name} [post]
-func (server *Server) CreateJob(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	appName := vars["app_name"]
-	appDesc := vars["job_group_description"]
-	logs.Logger.Println("Job group name is: " + appName)
-	logs.Logger.Println("Job group description is: " + appDesc)
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-	}
-	bodyString := string(bodyBytes)
-	bodyStringTrimmed := strings.Trim(bodyString, "\r\n")
-	logs.Logger.Println("Trimmed body: " + bodyStringTrimmed)
-	var mMResponseMapper models.MMResponseMapper
-
-	splittedManifests := strings.Split(bodyStringTrimmed, "---")
-
-	// MM Mock from env
-
-	logs.Logger.Println("Mocking MM response: " + os.Getenv("MOCK_TARGET_CLUSTER"))
-	for i := 1; i < len(splittedManifests); i++ { //starts in 1 to drop first application description manifest
-		mMResponseMapper.Components = append(mMResponseMapper.Components, models.Component{
-			Name:      "name-" + strconv.FormatInt(int64(i), 10),
-			Kind:      "kind-" + strconv.FormatInt(int64(i), 10),
-			Manifests: "",
-			Targets: []models.Target{{
-				ClusterName:  os.Getenv("MOCK_TARGET_CLUSTER"),
-				NodeName:     os.Getenv("MOCK_TARGET_CLUSTER"),
-				Orchestrator: "ocm",
-			}},
-		})
-	}
-
-	/* // create MM request
-	req, err := http.NewRequest("POST", matchmackerBaseURL+"/matchmake", bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	// add content type
-	req.Header.Set("Content-Type", "application/x-yaml")
-	// forward the authorization token
-	req.Header.Add("Authorization", r.Header.Get("Authorization"))
-
-	// do request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logs.Logger.Println("ERROR " + err.Error())
-		responses.ERROR(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// if response is OK
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		// direct body read
-		bodyMM, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logs.Logger.Println("ERROR " + err.Error())
-			responses.ERROR(w, http.StatusUnprocessableEntity, err)
-			return
-		}
-
-		// debug
-		dst := &bytes.Buffer{}
-		_ = json.Indent(dst, bodyMM, "", "  ")
-		logs.Logger.Println("MM response is: " + dst.String())
-		// parse to application objects
-		err = json.Unmarshal(bodyMM, &mMResponseMapper)
-		if err != nil {
-			logs.Logger.Println("ERROR " + err.Error())
-			responses.ERROR(w, http.StatusUnprocessableEntity, err)
-			return
-		}
-		fmt.Printf("Matchmaking response details: %#v", mMResponseMapper)
-
-	*/
-	// initialize conditions
-	conditions := []models.Condition{
-		{
-			Type:               "Created",
-			Status:             "True",
-			ObservedGeneration: 1,
-			LastTransitionTime: time.Now(),
-			Reason:             "AwaitingForTarget",
-			Message:            "Waiting for the Target",
-		},
-		{
-			Type:               "Available",
-			Status:             "True",
-			ObservedGeneration: 1,
-			LastTransitionTime: time.Now(),
-			Reason:             "Waiting for Job to be taken",
-			Message:            "Resource does not exist",
-		},
-	}
-
-	// extract header block
-	headers := splittedManifests[0]
-	headerStruct := models.JobGroupHeader{}
-	yaml.Unmarshal([]byte(headers), &headerStruct)
-	logs.Logger.Println("Application Headers: " + headers)
-	fmt.Printf("%#v", headerStruct)
-
-	// create Job Group
-	jobGroup := models.JobGroup{
-		AppName:        headerStruct.Name,
-		AppDescription: headerStruct.Description,
-	}
-
-	// // create unique namespace
-	// rs := utils.RandomString(10)
-
-	// remove policies block before parsing
-	// mMResponseMapper.Components = mMResponseMapper.Components[:len(mMResponseMapper.Components)-1]
-	// create job per component
-	for i, comp := range mMResponseMapper.Components {
-		// declare job per received component
-		job := models.Job{
-			Type:         models.CreateDeployment,
-			State:        models.JobCreated,
-			Manifest:     splittedManifests[i+1], // TODO, this could fail so easily..
-			Targets:      comp.Targets,
-			JobGroupName: jobGroup.AppName,
-			Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element
-			Namespace:    headerStruct.Namespace,       // Unique within a single cluster
-			Resource: models.Resource{
-				ResourceName: comp.Name,
-				Conditions:   conditions,
-			},
-		}
-		jobGroup.Jobs = append(jobGroup.Jobs, job)
-		logs.Logger.Println("New Job appended to JobGroup: " + job.JobGroupID.String())
-
-		// since we are iterating targets, for each target a job to create the namespace must be created
-		// this job contains a namespace declaration, but in only applies if the target is a kubernetes cluster
-		// if comp.Targets[0].Orchestrator == "ocm" {
-		// 	nSJob := models.Job{
-		// 		Type:         models.CreateNamespace,
-		// 		State:        models.JobCreated,
-		// 		Manifest:     "", // namespace yaml declaration -> should be provided by DM
-		// 		Targets:      job.Targets,
-		// 		JobGroupName: jobGroup.AppName,
-		// 		Orchestrator: comp.Targets[0].Orchestrator, // TODO, should not point to first element, proposal: remove array
-		// 		Namespace:    headerStruct.Namespace,       // Unique within a single cluster
-		// 		Resource: models.Resource{
-		// 			ResourceName: headerStruct.Namespace,
-		// 			Conditions:   conditions,
-		// 		},
-		// 	}
-		// 	jobGroup.Jobs = append(jobGroup.Jobs, nSJob)
-		// 	logs.Logger.Println("Namespace appended to JobGroup: " + nSJob.Namespace)
-		// }
-
-	}
-	// gorm save
-	_, err = jobGroup.SaveJobGroup(server.DB)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	// notify policy manager
-	//models.NotifyPolicyManager(server.DB, bodyStringTrimmed, jobGroup, r.Header.Get("Authorization"))
-
-	logs.Logger.Println("APPDESC: " + jobGroup.AppDescription)
-	responses.JSON(w, http.StatusCreated, jobGroup) // TODO change
-	/*
-		 	} else {
-				err := errors.New("Matchmaking process did not return valid targets: status code - " + string(rune(resp.StatusCode)))
-				responses.ERROR(w, http.StatusInternalServerError, err)
-				return
-			}
-	*/
-}
-
-// DeleteJob example
-//
-//	@Description	delete job by id
-//	@ID				delete-job-by-id
+//	@Summary		Delete Job by UUID
+//	@Description	delete job by uuid
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string	true	"Authentication header"
-//	@Param			id				path		string	true	"Job ID"
-//	@Success		200				{string}	string	"Ok"
-//	@Failure		400				{object}	string	"ID is required"
-//	@Failure		404				{object}	string	"Can not find Job to delete"
-//	@Router			/jobmanager/jobs/{id} [delete]
+//	@Param			job_uuid	path		string	true	"Job UUID"
+//	@Success		200			{string}	string	"Ok"
+//	@Failure		400			{object}	string	"Job UUID is required"
+//	@Failure		404			{object}	string	"Can not find Job to delete"
+//	@Router			/jobmanager/jobs/{job_uuid} [delete]
 func (server *Server) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	stringID := vars["id"]
+	stringID := vars["job_uuid"]
 	if stringID == "" {
 		err := errors.New("ID Cannot be empty")
-		fmt.Println("JOB's ID is empty!")
+		logs.Logger.Println("JOB's ID is empty!")
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
-	uuid, err := uuid.Parse(stringID)
+
+	jobDeleted, err := server.JobService.DeleteJob(stringID)
 	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	// gorm retrieve
-	job := models.Job{}
-	jobDeleted, err := job.DeleteAJob(server.DB, uuid)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
+		responses.ERROR(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
 	responses.JSON(w, http.StatusOK, jobDeleted)
 }
 
-// UpdateAJob example
+// UpdateAJob godoc
 //
+//	@Summary		Update a Job
 //	@Description	update a job
-//	@ID				update-a-job
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string		true	"Authentication header"
-//	@Param			id				path		string		true	"Job ID"
-//	@Param			Job				body		models.Job	true	"Job information"
-//	@Success		200				{object}	models.Job	"Ok"
-//	@Failure		400				{object}	string		"ID is required"
-//	@Failure		404				{object}	string		"Can not find Job to update"
-//	@Router			/jobmanager/jobs/{id} [put]
+//	@Param			job_uuid	path		string		true	"Job UUID"
+//	@Param			Job			body		models.Job	true	"Job information"
+//	@Success		200			{object}	models.Job
+//	@Failure		400			{object}	string	"Error reading request body"
+//	@Failure		404			{object}	string	"Could not find job"
+//	@Router			/jobmanager/jobs [put]
 func (server *Server) UpdateAJob(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stringID := vars["id"]
-	if stringID == "" {
-		err := errors.New("ID Cannot be empty")
-		fmt.Println("JOB's ID is empty!")
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	id, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	resource := models.Resource{}
+	defer r.Body.Close() // Ensure the body is closed after reading
+
 	job := models.Job{}
 	bodyJob, err := io.ReadAll(r.Body)
 	if err != nil {
+		logs.Logger.Println("Error reading request body:", err)
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
+		return
 	}
 
 	err = json.Unmarshal(bodyJob, &job)
 	if err != nil {
+		logs.Logger.Println("Error unmarshalling job:", err)
 		responses.ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	logs.Logger.Println("Reading job to update " + job.ID.String())
 
-	// update resource details first
-	_, err = resource.UpdateAResource(server.DB, job.ID, job.UUID)
+	jobUpdated, err := server.JobService.ReportJobState(&job)
 	if err != nil {
-		logs.Logger.Println("Resource were not found during Job update")
-		// responses.ERROR(w, http.StatusBadRequest, err)
-		// return
-	}
-	jobUpdated, err := job.UpdateAJob(server.DB, id)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
+		logs.Logger.Println("Error finding job:", err)
+		responses.ERROR(w, http.StatusNotFound, err)
 		return
+	}
+
+	if jobUpdated.SubType == models.Reallocate && jobUpdated.Type == models.DeleteDeployment {
+		jobUpdated, err = server.JobService.ReallocateJob(jobUpdated, r.Header)
+		if err != nil {
+			logs.Logger.Println("Error reallocating job:", err)
+			responses.ERROR(w, http.StatusUnprocessableEntity, err)
+			return
+		}
 	}
 
 	responses.JSON(w, http.StatusOK, jobUpdated)
 }
 
-// GetJobGroup example
+// PromoteJobByUUID godoc
 //
-//	@Description	Get JobGroup
-//	@ID				get-jobgroup
+//	@Summary		Promote Job by UUID
+//	@Description	promote job by uuid
+//	@Tags			jobs
 //	@Accept			json
 //	@Produce		json
-//	@Param			Authorization	header		string				true	"Authentication header"
-//	@Success		200				{string}	[]models.JobGroup	"Ok"
-//	@Failure		404				{object}	string				"Can not find JobGroup"
-//	@Router			/jobmanager/jobs [get]
-func (server *Server) GetJobGroupByUUID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stringID := vars["id"]
-	if stringID == "" {
-		err := errors.New("ID Cannot be empty")
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	uuid, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	fmt.Println("Parsed JobGroup ID to lookup: " + uuid.String())
-	// gorm retrieve
-	jobGroup := models.JobGroup{}
-	jobGroupGotten, err := jobGroup.FindJobGroupByUUID(server.DB, uuid)
+//	@Param			job_uuid	path		string	true	"Job UUID"
+//	@Success		204			{string}	string	"Job Promoted"
+//	@Failure		400			{object}	string	"Job UUID is required"
+//	@Failure		404			{object}	string	"Can not find Job to promote"
+//	@Router			/jobmanager/jobs/promote/{job_uuid} [patch]
+func (server *Server) PromoteJobByUUID(w http.ResponseWriter, r *http.Request) {
+	_, err := server.JobService.JobPromote(r)
 	if err != nil {
 		responses.ERROR(w, http.StatusBadRequest, err)
 		return
 	}
 
-	responses.JSON(w, http.StatusOK, jobGroupGotten)
-}
-
-// DeleteJobGroup example
-//
-//	@Description	delete job group by id
-//	@ID				delete-job-group-by-id
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string	true	"Authentication header"
-//	@Param			id				path		string	true	"JobGroup ID"
-//	@Success		200				{string}	string	"Ok"
-//	@Failure		400				{object}	string	"ID is required"
-//	@Failure		404				{object}	string	"Can not find JobGroup to delete"
-//	@Router			/jobmanager/jobs/group/{id} [delete]
-func (server *Server) DeleteJobGroup(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stringID := vars["id"]
-	if stringID == "" {
-		err := errors.New("ID Cannot be empty")
-		fmt.Println("JobGroup's ID is empty!")
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	uuid, err := uuid.Parse(stringID)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-	// gorm retrieve
-	jobGroup := models.JobGroup{}
-	jobGroupDeleted, err := jobGroup.DeleteAJobGroup(server.DB, uuid)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-
-	responses.JSON(w, http.StatusOK, jobGroupDeleted)
-}
-
-// GetAllJobGroups example
-//
-//	@Description	Get All JobGroups
-//	@ID				get-all-jobGroups
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string			true	"Authentication header"
-//	@Success		200				{string}	[]models.JobGroup	"Ok"
-//	@Failure		404				{object}	string			"Can not find JobGroups"
-//	@Router			/jobmanager/jobs/group/all [get]
-func (server *Server) GetAllJobGroups(w http.ResponseWriter, r *http.Request) {
-	// gorm retrieve
-	jobGroup := models.JobGroup{}
-	jobGroupsGotten, err := jobGroup.FindAllJobGroups(server.DB)
-	if err != nil {
-		responses.ERROR(w, http.StatusBadRequest, err)
-		return
-	}
-
-	responses.JSON(w, http.StatusOK, jobGroupsGotten)
+	responses.JSON(w, http.StatusNoContent, http.NoBody)
 }

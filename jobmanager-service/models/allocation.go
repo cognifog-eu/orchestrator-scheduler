@@ -1,5 +1,5 @@
 /*
-Copyright 2023-2024 Bull SAS Bull SAS
+Copyright 2023-2024 Bull SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,21 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package models
 
-package utils
-
-// func RandomString(n int) string {
-
-// 	var alphabet []rune = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890")
-
-// 	alphabetSize := len(alphabet)
-// 	var sb strings.Builder
-
-// 	for i := 0; i < n; i++ {
-// 		ch := alphabet[rand.Intn(alphabetSize)]
-// 		sb.WriteRune(ch)
-// 	}
-
-// 	s := sb.String()
-// 	return s
-// }
+// Target entity
+type Target struct {
+	BaseUINT
+	JobID        string           `gorm:"type:char(36);index;not null" json:"-" yaml:"-" validate:"omitempty,uuid4"`
+	ClusterName  string           `json:"cluster_name" yaml:"cluster_name" validate:"required"`
+	NodeName     string           `json:"node_name" yaml:"node_name,omitempty" validate:"omitempty"`
+	Orchestrator OrchestratorType `gorm:"type:text" json:"orchestrator" yaml:"orchestrator" validate:"required"`
+}
