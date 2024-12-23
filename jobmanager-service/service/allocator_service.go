@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -73,6 +73,22 @@ func (as *allocatorService) AssignTargets(job *models.Job, targets interface{}) 
 		} else {
 			logs.Logger.Fatalf("Unexpected non-empty array for targets")
 		}
+
+	case interface{}:
+		targetBytes, err := yaml.Marshal(t)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			return err
+		}
+
+		var targetStruct models.Target
+		err = yaml.Unmarshal(targetBytes, &targetStruct)
+		if err != nil {
+			logs.Logger.Println("ERROR " + err.Error())
+			return err
+		}
+
+		job.Target = targetStruct
 
 	default:
 		logs.Logger.Fatalf("Unexpected type for targets: %T", targets)
