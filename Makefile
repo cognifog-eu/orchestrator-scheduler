@@ -2,7 +2,7 @@ include .env
 
 ## Containerized with embeded database
 
-build-container:	# Build application into container
+build:	# Build application into container
 	docker build --pull --rm -f "Dockerfile" -t harbor.cognifog.rid-intrasoft.eu/orchestrator-scheduler/orch-scheduler-jobmanager:dev "."
 
 push: # Push container to repository
@@ -31,9 +31,5 @@ stop-database: # Stop only database
 	docker-compose -f docker-compose-database.yml down
 
 ## Local application
-
-build:	# Build application
-	go build -o bin/main main.go
-
 run:	# Start application
 	go run main.go
