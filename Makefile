@@ -19,12 +19,12 @@ uninstall:
 	helm uninstall mysql -n jobmanager
 
 template:
-	helm template --name-template mysql ./job-manager-charts/mysql/ \
+	helm template --name-template mysql ./job-manager-charts/mysql/ -n cognifog-dev \
 	> jenkins/manifests.yaml
-	helm template --name-template jobmanager job-manager-charts/job-manager/ \
+	helm template --name-template jobmanager job-manager-charts/job-manager/ -n cognifog-dev \
 	>> jenkins/manifests.yaml
 	echo "---" >> jenkins/manifests.yaml
-	cat job-manager-charts/mysql/secret.yaml >> jenkins/manifests.yaml
+	sed '/metadata:/a\  namespace: cognifog-dev' job-manager-charts/mysql/secret.yaml >> jenkins/manifests.yaml
 
 start: # Start application from container with embeded database
 	docker-compose up -d

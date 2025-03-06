@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mysql
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -20,7 +20,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mysql
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -30,14 +30,14 @@ metadata:
 type: Opaque
 data:
   mysql-root-password: "cEBzcy0yMDIzLW15c3FsXw=="
-  mysql-password: "R3lkV09RQzV6eQ=="
+  mysql-password: "WmxyYTA1SmppTA=="
 ---
 # Source: mysql/templates/primary/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mysql
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -81,7 +81,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mysql-headless
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -107,7 +107,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mysql
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -134,7 +134,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mysql
-  namespace: "default"
+  namespace: "cognifog-dev"
   labels:
     app.kubernetes.io/instance: mysql
     app.kubernetes.io/managed-by: Helm
@@ -156,7 +156,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/configuration: d456190368bac181d6a7e82992aa137ec30219724d9145f3fafa49024d5c5a31
+        checksum/configuration: c1952ab88cc9a706e1ebb182f3dd886c14be6925955f1d481cb9b8318e40df21
       labels:
         app.kubernetes.io/instance: mysql
         app.kubernetes.io/managed-by: Helm
@@ -421,5 +421,6 @@ data:
   mysql-root-password: cEBzcy0yMDIzLW15c3FsXw==
 kind: Secret
 metadata:
+  namespace: cognifog-dev
   name: mysql-secret
 type: Opaque

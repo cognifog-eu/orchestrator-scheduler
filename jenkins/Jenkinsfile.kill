@@ -13,7 +13,7 @@ pipeline {
         stage("Kill_The_App"){
             steps {
                withKubeConfig([credentialsId: 'k8s-jenkins']) {
-                   sh 'kubectl delete -f jenkins/manifests.yaml -n cognifog-dev || true'
+                   sh 'kubectl delete -f jenkins/manifests.yaml || true'
                }
             }
         }
