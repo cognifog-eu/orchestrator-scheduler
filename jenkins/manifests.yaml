@@ -365,7 +365,7 @@ spec:
         app.kubernetes.io/instance: jobmanager
     spec:
       imagePullSecrets:
-        - name: cognifog-harbor-secret
+        - name: harbor-cred
       serviceAccountName: jobmanager
       securityContext:
         {}

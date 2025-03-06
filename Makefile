@@ -21,7 +21,7 @@ uninstall:
 template:
 	helm template --name-template mysql ./job-manager-charts/mysql/ -n cognifog-dev \
 	> jenkins/manifests.yaml
-	helm template --name-template jobmanager job-manager-charts/job-manager/ -n cognifog-dev \
+	helm template --name-template jobmanager job-manager-charts/job-manager/ -n cognifog-dev -f jenkins/jobmanager-values.yaml \
 	>> jenkins/manifests.yaml
 	echo "---" >> jenkins/manifests.yaml
 	sed '/metadata:/a\  namespace: cognifog-dev' job-manager-charts/mysql/secret.yaml >> jenkins/manifests.yaml
