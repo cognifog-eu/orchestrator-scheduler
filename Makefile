@@ -18,6 +18,14 @@ uninstall:
 	helm uninstall jobmanager -n jobmanager
 	helm uninstall mysql -n jobmanager
 
+template:
+	helm template --name-template mysql ./job-manager-charts/mysql/ \
+	> jenkins/manifests.yaml
+	helm template --name-template jobmanager job-manager-charts/job-manager/ \
+	>> jenkins/manifests.yaml
+	echo "---" >> jenkins/manifests.yaml
+	cat job-manager-charts/mysql/secret.yaml >> jenkins/manifests.yaml
+
 start: # Start application from container with embeded database
 	docker-compose up -d
 
