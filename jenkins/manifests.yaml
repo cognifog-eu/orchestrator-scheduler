@@ -286,6 +286,7 @@ spec:
           requests:
             storage: "8Gi"
         storageClassName: standard
+        # add static persistent volume
 ---
 # Source: job-manager/templates/serviceaccount.yaml
 apiVersion: v1
