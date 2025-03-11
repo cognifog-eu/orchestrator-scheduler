@@ -285,6 +285,7 @@ spec:
         resources:
           requests:
             storage: "8Gi"
+        storageClassName: standard
 ---
 # Source: job-manager/templates/serviceaccount.yaml
 apiVersion: v1
